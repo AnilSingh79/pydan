@@ -6,8 +6,7 @@ Created on Oct 6, 2015
 '''
 
 import sys
-import unicodedata
-from string import printable
+
 def new_list(L):
     return [a for a in L]
     
