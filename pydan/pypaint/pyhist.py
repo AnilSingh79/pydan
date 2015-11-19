@@ -4,8 +4,6 @@ Created on Oct 22, 2015
 @author: Anil Singh
 '''
 import sqlite3
-import matplotlib.pyplot as plt
-##from pydan.pydata import pydataview
 from pypaint.pyaxis import TCosmetic
 
 
