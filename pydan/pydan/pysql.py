@@ -1,7 +1,8 @@
 '''
 Created on Oct 6, 2015
 
-@author: singan22
+@author: Anil Singh
+
 '''
 
 import sys
@@ -13,23 +14,16 @@ def create_table_qry(tabName, varNames, varTypes=[], uniqueIdFlag=False,uIdName=
         query = ' CREATE  TABLE '+tabName+''' ( \n'''
         if(uniqueIdFlag == True):
             query = query + uIdName+'        VARCHAR,\n '
-        varterms = []
-       
+        varterms = []       
         if (len(varTypes)==0):
-            varTypes = ['VARCHAR']*len(varNames)
-           
-        for varname, vartype in zip(varNames,varTypes):
-            
+            varTypes = ['VARCHAR']*len(varNames)           
+        for varname, vartype in zip(varNames,varTypes):            
             varterms.append('       '.join([varname,vartype]))
-            
-            
-             
         query = query+ ',\n '.join(varterms)
         query = query+'\n )'
-     
         return query
     except Exception as err:
-        print_error(err, 'pysql.create_table_qry')
+        print_error(err, 'pysql.create_table_qry')        
         
 def insert_qry(tabName,valList,uniqueId=0):
     query = '''INSERT INTO '''+tabName+''' VALUES ('''+str(uniqueId)+', '
@@ -60,28 +54,22 @@ def select_data_qry(varNames,srcNames,conditions=['1=1'],groupby=[],orderby=[],l
         if limit>0 :
             query = query+"\nLIMIT "+str(limit)
         if offset > 0:
-            query = query + '\nOFFSET '+str(offset)
-            
+            query = query + '\nOFFSET '+str(offset)            
         return query
     except Exception, err:
         sys.stderr.write('ERROR: %s\n' % str(err))
-        return ''
-
-    
+        return ''    
 
 def create_view_qry( viewName, varNames,srcNames, conditions=[],groupby=[],orderby=[]):
     selQry =  select_data_qry(varNames, srcNames, conditions, groupby, orderby)
     query = ('CREATE VIEW '+viewName+' AS \n' )+selQry
-    return query
-    
-   
+    return query  
 
 def update_column_qry(tabName,colName,oVal='old',nVal='new'):
     query = 'UPDATE '+tabName+'\n'
     query = query+'SET '+colName+" = '"+nVal+"'\n"
     query = query+'WHERE '+colName+" = '"+oVal+"'\n"
-    return query
-      
+    return query      
       
 def get_column_metrics_qry(tabName,varName,conditions=['1=1'],groupby=[],orderby=[]):
     
@@ -99,9 +87,7 @@ def get_column_err2_qry(tabName,varName,mean,conditions=['1=1'],groupby=[],order
     varNames = ["'"+varName+"' as varName "]
     varNames.append('SUM((('+varName+')-('+strMean+'))*(('+varName+')-('+strMean+'))) as err2')
     query = select_data_qry(varNames,[tabName])
-    return query
-
-    
+    return query    
     
 def get_median_qry(tabName,varName,count,conditions=['1=1'],groupby=[],orderby=[]):
     ##Now let us find the median.
@@ -111,8 +97,7 @@ def get_median_qry(tabName,varName,count,conditions=['1=1'],groupby=[],orderby=[
     query = select_data_qry([varName], [tabName], orderby=[varName])
     query = query+'\nLIMIT '+str(limit)
     query = query+'\nOFFSET '+str(offset)    
-    query = select_data_qry(['AVG('+str(varName)+')'],["("+str(query)+")"])
-    
+    query = select_data_qry(['AVG('+str(varName)+')'],["("+str(query)+")"])    
     return query
     
 def get_binning_query(tabName,lowBinDict,hiBinDict,conditions=['1=1'],orderby=[],limit=-1,offset=-1):
@@ -130,16 +115,13 @@ def get_binning_query(tabName,lowBinDict,hiBinDict,conditions=['1=1'],orderby=[]
         ##print query
         return query
     except Exception as err:
-        print_error(err,'pysql.get_binning_query')
-        
+        print_error(err,'pysql.get_binning_query')        
 
 def drop_table_qry(tabName, tabType=' VIEW '):
     try:
         return 'DROP '+tabType+' IF EXISTS '+tabName
     except Exception as err:
         print_error(err, 'drop_table_qry')
-
-
             
 def get_binning_casequery(tabName,varName,lBinEdges,hBinEdges):
     try:
@@ -155,10 +137,8 @@ def get_binning_casequery(tabName,varName,lBinEdges,hBinEdges):
         case_query += 'END '+varName+'\n'       
         return case_query
     except Exception as err:
-        print_error(err, 'pydataview.get_binning_casequery')
+        print_error(err, 'pydataview.get_binning_casequery')  
     
-
-
 
 
 
