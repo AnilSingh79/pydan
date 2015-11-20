@@ -8,9 +8,11 @@ Created on Oct 7, 2015
 
 import sqlite3
 #import math
+import re
 import numpy as np
 import datetime as dt
 import matplotlib.dates as mdate
+
 ##PYDAN IMPORTS
 from pydan.pysql     import  create_table_qry  
 from pydan.pysql     import  drop_table_qry
@@ -99,54 +101,6 @@ class pydset(object):
             print_error(err, 'pydset.union_to')   
 
 
-    def to_numpy(self,varNames=['*'], conditions=['1=1'],groupBy=[],orderBy=[],limit=-1,offset=-1):
-        '''
-          Returns a subset of data, as a numpy table
-        '''
-        try:
-            query = select_data_qry(varNames,self.srcName,conditions,groupBy,orderBy,limit,offset)
-            retAr = []
-            results = self.pConn.cursor().execute(query)
-            for row in results:
-                retAr.append(list(row))
-            return np.array(retAr)
-        except Exception as err:
-            print_error(err,'pydset.to_numpy')
-
-    def to_csv(self,fileName, varNames=['*'], conditions=['1=1'],groupBy=[],orderby=[],limit=-1,offset=-1):
-        '''
-         Writes a subset of data, as a csv file on disk.
-        '''
-        try:
-            ofile = open(fileName,'w')  
-            query = select_data_qry(varNames,[self.srcName],conditions,groupBy,orderby,limit,offset)
-            print query
-            results = self.pConn.cursor().execute(query)
-            varNames =  [ i[0] for i in results.description]  
-            ofile.write(','.join(varNames)+'\n')
-            for record in results:
-                ofile.write(','.join(map(str,record))+'\n')
-            ofile.close()
-        except Exception as err:
-            print_error(err,'pydset.to_csv')
-            
-    def to_database(self,tabName,varNames=['*'], conditions=['1=1'],groupBy=[],orderBy=[],limit=-1,offset=-1):
-        '''
-         Writes a subset of data, as a table in SQLITE file.
-         No pydset object is returned.
-         
-         Note: Why do we even need this when we have self.get? consider deprecating.
-        '''
-        try:
-            query = ' CREATE TABLE '+tabName+' AS SELECT * FROM '+self.srcName
-            self.pConn.cursor().execute(query)
-            self.pConn.commit()
-            pd = pydset(self.dbaseName, tabName)
-            pd.force_col_types(self.colTypes)
-            return pd
-        except Exception as err:
-            print_error(err,'pydset.to_database')
-            
     def update(self, colName, newVal, conditions=['1=1'],returnQueryOnly='FALSE'):
         '''
           Assume Table : FirstName, LastName, Description
@@ -164,7 +118,7 @@ class pydset(object):
         except Exception as err:
             print_error(err, 'pydset.update')
     
-    def get(self,resultTab,resultType=' VIEW ',varNames=['*'],srcName='',conditions = ['1=1'],groupBy = [],orderBy = [],limit=-1, offset=-1,returnQueryOnly=False):
+    def subset(self,resultTab,resultType=' VIEW ',varNames=['*'],srcName='',conditions = ['1=1'],groupBy = [],orderBy = [],limit=-1, offset=-1,returnQueryOnly=False):
         '''
          Writes a subset of data, as a VIEW or TABLE and returns a pydset object bound to new table.        
         '''
@@ -212,7 +166,7 @@ class pydset(object):
             numLines = int(lLine)-firstLine+1
             ofset = firstLine-1
             limit = numLines 
-            return  self.get(varNames=varNames, 
+            return  self.subset(varNames=varNames, 
                          conditions=conditions, 
                          limit=limit,
                          offset=ofset,
@@ -269,8 +223,11 @@ class pydset(object):
             else:
                 fixedColTypes = [self.colType[col] for col in fixedCols]
             ##Check of the fixed columns lead to unique tuples.
-            uniqueCount = self.pConn.execute('SELECT COUNT(*) FROM (SELECT DISTINCT '+','.join(fixedCols)+' FROM '+self.srcName+')').fetchone()[0]
-            totalCount  = self.pConn.execute('SELECT COUNT(*) FROM (SELECT'+','.join(fixedCols)+' FROM '+self.srcName+')').fetchone()[0]
+            uniqueCount = self.pConn.execute(
+                            'SELECT COUNT(*) FROM (SELECT DISTINCT '+','.join(fixedCols)+' FROM '+self.srcName+')').fetchone()[0]
+            totalCount  = self.pConn.execute(
+                            'SELECT COUNT(*) FROM (SELECT'+','.join(fixedCols)+' FROM '+self.srcName+')').fetchone()[0]
+                            
             if uniqueCount != totalCount:
                 raise ValueError('pydset.column_to_rows: fixedCols must yield a stable set of rows')       
             ##Get on with the actual transposing.
@@ -296,7 +253,8 @@ class pydset(object):
             print_error(err, 'pydset.columns_to_rows')
     
             
-    def aggregate(self,resultTab,resultType=' VIEW ',aggOp=' SUM ', varNames=['*'],conditions = ['1=1'],groupBy=[],orderBy = [],returnQueryOnly=False):
+    def aggregate(self,resultTab,resultType=' VIEW ',aggOp=' SUM ', varNames=['*'],conditions = ['1=1'],
+                                 groupBy=[],orderBy = [],returnQueryOnly=False):
         '''
          Collapse multiple rows using aggOp operation, write to sqlite and return pydset object.
          Demonstration: 
@@ -330,7 +288,7 @@ class pydset(object):
             for sv in sumVars:
                 myvars.append(sv)
             #print myvars
-            return self.get(resultTab=resultTab,
+            return self.subset(resultTab=resultTab,
                           resultType=resultType,
                           varNames=varNames,
                           conditions=conditions,
@@ -341,9 +299,11 @@ class pydset(object):
         except Exception as err:
             print_error(err,'pydset.aggregate')
             
-    def get_sum(self,resultTab,resultType=' VIEW ', varNames=['*'],conditions = ['1=1'],groupBy=[],orderBy = [],limit=-1, offset=-1,returnQueryOnly=False):
+    def get_sum(self,resultTab,resultType=' VIEW ', varNames=['*'],conditions = ['1=1'],
+                               groupBy=[],orderBy = [],limit=-1, offset=-1,returnQueryOnly=False):
         '''
-         Calculate SUM of each variable in varNames, as a function of variables in groupBy. Write summary to sqlite and return pydset object.
+         Calculate SUM of each variable in varNames, as a function of variables in groupBy. 
+          Write summary to sqlite and return pydset object.
         '''
         
         try:
@@ -369,7 +329,7 @@ class pydset(object):
         try:             
             cVars = [var for var in groupBy]
             cVars.append(' COUNT('+cVars[0]+') as freq')                
-            vw = self.get(
+            vw = self.subset(
                           resultTab = resultTab,
                           resultType = resultType,
                           varNames=cVars,groupby=groupBy
@@ -505,7 +465,7 @@ class pydset(object):
         '''
           Arguments: None
           Description: Prints the name of columns and the corresponding
-           datatypes as per current understanding.
+                datatypes as per current understanding.
         '''
         ret_dict = self.colTypes.copy()
         for key in ret_dict:
@@ -524,7 +484,6 @@ class pydset(object):
             try:            
                 metrics = {}
                 metrics['varName']=varName
-            
                 cnt = self.count(varName)
                 metrics['count']  = cnt
                 metrics['sum']=self.sum(varName)
@@ -561,7 +520,74 @@ class pydset(object):
                            str(metrics['count'])),20)  
             print cosmetic
         except Exception as err:
-            print_error(err, 'pydataview.desribe')       
+            print_error(err, 'pydataview.desribe')         
+            
+            
+            
+    def get(self,colName):
+            query = 'SELECT '+colName+' FROM '+self.srcName+' WHERE '+colName+" != ''"
+            ####print query
+            results = self.pConn.cursor().execute(query)
+            colVals = []
+            for value in results:
+                ##Either is a integer type expression or a float type expression
+                ##val = clean_string(value[0],replaceHyphen= False)
+                ##Why were you changing the values in above line... before returning?
+                val = value[0]
+                colVals.append(val)
+            
+            return colVals 
+        
+    def check_numericity(self, colName):
+        def make_unicode(input):
+            if type(input) != unicode:
+                input =  input.decode('utf-8')
+                return input
+            else:
+                return input
+        try:
+            if ('VARCHAR'.lower() != self.colTypes[colName].lower().strip()):
+                raise ValueError("pydset.check_numericity: Operation permitted for text columns only.")
+            results = self.get(colName)
+            isNumber = True
+            colVals  = []
+            for value in results:
+                val = clean_string(value,replaceHyphen= False)
+                uv = make_unicode(val)
+                isNumber = isNumber and (uv.isdecimal() or uv.isnumeric())
+            return isNumber 
+        except Exception as err:
+            print_error(err, 'pydataset.check_numericity')
+    
+    def check_temporicity(self, colName, dateFormat='yyyy-mm-dd'):        
+        try:
+            if self.colTypes[colName]!='VARCHAR':
+                raise ValueError("pydset.check_numericity: Operation permitted for text columns only.")
+            matcher = {'dd-mm-yyyy':'\d{1,2}-\d{1,2}-\d{4}','yyyy-mm-dd':'\d{4}-\d{1,2}-\d{1,2}'}
+            isDate = True           
+            results = self.get(colName)               
+            for value in results:
+                val = clean_string(value,replaceHyphen=False)
+                isDate = isDate and (re.match(matcher[dateFormat],val)!=None)
+            return isDate        
+        except Exception as err:
+            print err
+            print_error(err,'dataset.check_temporicity')  
+      
+    def analyze_columns(self, dateFormat='yyyy-mm-dd'):        
+   
+        try:
+            ##First identify numeric columns.
+            for colName in self.colNames:
+                isNum = self.check_numericity(colName)
+                
+                if (isNum):
+                    self.colTypes[colName] = 'NUMBER'
+                elif (self.check_temporicity(colName,dateFormat) == True):
+                    self.colTypes[colName] = 'DATE'
+        except Exception as err:
+            print_error(err, 'pydataset.analyze_col_types')
+
             
     def __discrete_count(self, resultTab,resultType = ' VIEW ',lowBinDict={}, highBinDict={},conditions=['1=1'], returnQueryOnly=False):
         '''
@@ -576,7 +602,7 @@ class pydset(object):
             
             varNames.append('COUNT(*) as FREQ')
             groupby = [ v for v in lowBinDict.keys()]
-            hist = self.get(
+            hist = self.subset(
                             resultTab = resultTab,
                             resultType= resultType,
                             varNames  = varNames,                  
@@ -661,6 +687,56 @@ class pydset(object):
             return gGraph
         except Exception as err:
             print_error(err, 'pydset.graph1D')
+
+    def to_numpy(self,varNames=['*'], conditions=['1=1'],groupBy=[],orderBy=[],limit=-1,offset=-1):
+        '''
+          Returns a subset of data, as a numpy table
+        '''
+        try:
+            query = select_data_qry(varNames,[self.srcName],conditions,groupBy,orderBy,limit,offset)
+            retAr = []
+            results = self.pConn.cursor().execute(query)
+            for row in results:
+                retAr.append(list(row))
+            return np.array(retAr)
+        except Exception as err:
+            print_error(err,'pydset.to_numpy')
+
+    def to_csv(self,fileName, varNames=['*'], conditions=['1=1'],groupBy=[],orderby=[],limit=-1,offset=-1):
+        '''
+         Writes a subset of data, as a csv file on disk.
+        '''
+        try:
+            ofile = open(fileName,'w')  
+            query = select_data_qry(varNames,[self.srcName],conditions,groupBy,orderby,limit,offset)
+            print query
+            results = self.pConn.cursor().execute(query)
+            varNames =  [ i[0] for i in results.description]  
+            ofile.write(','.join(varNames)+'\n')
+            for record in results:
+                ofile.write(','.join(map(str,record))+'\n')
+            ofile.close()
+        except Exception as err:
+            print_error(err,'pydset.to_csv')
+            
+    def to_database(self,tabName,varNames=['*'], conditions=['1=1'],groupBy=[],orderBy=[],limit=-1,offset=-1):
+        '''
+         Writes a subset of data, as a table in SQLITE file.
+         No pydset object is returned.
+         
+         Note: Why do we even need this when we have self.subset? consider deprecating.
+        '''
+        try:
+            query = ' CREATE TABLE '+tabName+' AS SELECT * FROM '+self.srcName
+            self.pConn.cursor().execute(query)
+            self.pConn.commit()
+            pd = pydset(self.dbaseName, tabName)
+            pd.force_col_types(self.colTypes)
+            return pd
+        except Exception as err:
+            print_error(err,'pydset.to_database')
+            
+
             
 
 

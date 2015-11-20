@@ -111,7 +111,7 @@ class pycsv_reader(object):
             if (self.pFirstLineIsHeader == True):
                 ##Move the file cursor to second line.
                 self.pFile.readline() ##just throw it away.
-            return pydset(self.dBase,tabName,srcType= ' TABLE ')    
+            return pydset(database,tabName,srcType= ' TABLE ')    
         except Exception, err:
                 print_error(err,"pycsv_reader.to_database")
             

@@ -5,14 +5,14 @@ Created on Nov 19, 2015
 '''
 import sqlite3
 import matplotlib.pyplot as plt
-from pypaint.pyaxis import TCosmetic
+from pypaint.pycosmetic import pycosmetics
 
 class TGraph(object):
     def __init__(self,dbaseName,name,status='new',**kwargs):
         
         self.dbaseName = dbaseName;
         self.pConn = sqlite3.connect(dbaseName)
-        self.pCosmetics = TCosmetic()
+        self.pCosmetics = pycosmetics()
         self.keysTab = name+'keys'
         self.dataTab = name+'data'
         self.xType = None
