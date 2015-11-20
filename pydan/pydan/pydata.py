@@ -282,7 +282,6 @@ class pydset(object):
                                     srcNames = [self.srcName]
                                     )
                 queryBox.append(q)
-                      
             query = '\nUNION ALL\n'.join(queryBox)
             query = 'CREATE TABLE '+resultTab+' AS \n'+query
             if returnQueryOnly == True:
@@ -564,7 +563,7 @@ class pydset(object):
         except Exception as err:
             print_error(err, 'pydataview.desribe')       
             
-    def __discrete_count(self, dsetName,lowBinDict={}, highBinDict={},conditions=['1=1'],orderby = [],limit=-1, offset=-1):
+    def __discrete_count(self, resultTab,resultType = ' VIEW ',lowBinDict={}, highBinDict={},conditions=['1=1'], returnQueryOnly=False):
         '''
         lBinDict: {var1:[1,2,3,4], var2:[1,2,3,4,5]... so on}
         hBinDict: {var1:[2,3,4,5],var2:[2,3,4,5]... so on}
@@ -577,23 +576,18 @@ class pydset(object):
             
             varNames.append('COUNT(*) as FREQ')
             groupby = [ v for v in lowBinDict.keys()]
-            hist = self.view(
-                             varNames=varNames,
-                             srcName = query, 
-                             conditions=conditions, 
-                             groupby=groupby, 
-                             orderby=orderby, 
-                             dsetName=dsetName, 
-                             limit=limit, 
-                             offset=offset
-                             )
-            
-             
+            hist = self.get(
+                            resultTab = resultTab,
+                            resultType= resultType,
+                            varNames  = varNames,                  
+                            conditions = ['1=1'],
+                            returnQueryOnly=returnQueryOnly
+                            )
             return hist
         except Exception as err:
-            print_error(err, 'pydataview.__bin')
+            print_error(err, 'pydataview.__discrete_count')
     
-    def create_skeleton_table(self, tabName, varNames=[]):       
+    def skeleton(self, tabName, varNames=[]):       
         if self.pConn is None:
             raise RuntimeError("pycvs is not connected to a database yet")
         else:
@@ -619,7 +613,7 @@ class pydset(object):
                         pv.colTypes[varName] = self. colTypes[varName]
                 return pv
             except Exception as err:
-                print_error(err, 'pydataview.create_skeleton_table')
+                print_error(err, 'pydataview.skeleton')
 
     def hist1D(self,outfile,varName,histName,title, nBins=None,minRange=None,maxRange =None,lBinEdges=[],hBinEdges=[]):
         try:

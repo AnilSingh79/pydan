@@ -7,7 +7,6 @@ Created on Oct 6, 2015
 import os
 import sqlite3
 import sys
-
 from pydan.pysql import create_table_qry, insert_qry
 from pydan.pydata import pydset
 from pydan.pytools import clean_text, print_error, clean_string
@@ -16,22 +15,20 @@ from pydan.pytools import clean_text, print_error, clean_string
 
 class pycsv_reader(object):
     '''
-     A sweet class to do a lot of heavy 
-     lifting with csv files.
+     csv reader
     '''
     _THE_CRAZY_SENTINEL_ = object()
     def __init__(self,token=_THE_CRAZY_SENTINEL_):
         if token is self._THE_CRAZY_SENTINEL_:
             ##pass
             raise ValueError("Can not construct directly, use pycsvfactory instead")
-        
+        self.pSeparator = ','
         self.pFname = ''
         self.dBase = ''
         self.pHeader = []
         self.pConn = None
         self.pFile = None
         self.pFirstLineIsHeader = True
-        
       
     def __del__(self):
         '''
@@ -39,9 +36,7 @@ class pycsv_reader(object):
         '''
         self.close()
         
-        
     def close(self):
-    
         try:
             self.pConn.close()
             self.pFile.close()
@@ -49,58 +44,50 @@ class pycsv_reader(object):
         except Exception, err:
             sys.stderr.write('ERROR: %s\n' % str(err))
 
-
     def toStr(self):
         print self.pFname
         for col in self.pHeader:
             print col
-       
         
     def connect(self, dbase_name, dialect='sqlite3'):
         self.dBase = dbase_name
         if self.pConn is not None:
             raise RuntimeError('Already connected to a database')
             return False
-        
         try:
             self.pConn = sqlite3.connect(dbase_name)
             self.pConn.text_factory = str
             ##pCurs = self.pConn.cursor()
-
         except Exception, err:
             sys.stderr.write('ERROR: %s\n' % str(err))
-
         if self.pConn is None:
             raise RuntimeError('Failed to connect database '+dbase_name)
             return False
         else:
             ##raise RuntimeError('Connecting to database '+name)
             return True
-                   
     
-    def  load(self,fName,headers=[],firstLineIsHeader=True):
+    def  load(self,fName,headers=[],separator = ',', firstLineIsHeader=True):
         self.pFirstLineIsHeader = firstLineIsHeader
+        self.pSeparator = separator
         if len(headers) !=0 and firstLineIsHeader==True:
             raise RuntimeError('Ambiguous Header Specifications')
         self.pFname = fName
         if os.path.exists(self.pFname):
             self.pFile = open(self.pFname,'r')
-            firstLine   = self.pFile.readline().split(",")
+            firstLine   = self.pFile.readline().split(self.pSeparator)
             ##print firstLine
             if len(headers) == 0 and firstLineIsHeader==False:
                 numCol = len(firstLine)
                 for n in range (1,numCol):
                     self.pHeader.append(str(n))
-                    
             elif len(headers) == 0 and firstLineIsHeader==True:
                 self.pHeader = firstLine
-             
             elif len(headers) != 0 and firstLineIsHeader==False:
                 if len(firstLine) == len(headers):
                     self.pHeader = headers
                 else:
                     raise RuntimeError("Not implemented yet")
-            
             self.pHeader = map (str.strip, self.pHeader)
             self.pHeader = map (clean_string,self.pHeader)
             ##The clean_text return two values: Check how it works here.
@@ -109,18 +96,17 @@ class pycsv_reader(object):
             ##@ANIL I don't want it this ugly
             tempHeader = []
             for cname in self.pHeader:
-                a, h = clean_text(cname,',')
+                a, h = clean_text(cname,self.pSeparator)
                 a = a.replace('"','')
                 tempHeader.append(a)
             self.pHeader = tempHeader
-            
         elif IOError:
             print "Unable to find file: "+str(fName)
-           
        
     def  to_database(self,tabName,varNames=[],varTypes=[]):
         '''writes the csv file to a table.
-           returns a dataset object associated with table'''
+           ---returns a pydset object associated with table
+        '''
         if self.pConn is None:
             raise RuntimeError("pycvs is not connected to a database yet")
         else:
@@ -133,8 +119,7 @@ class pycsv_reader(object):
                 print query
                 self.pConn.cursor().execute(query)
                 self.pConn.commit()
-                
-                line = self.pFile.readline().split(',');
+                line = self.pFile.readline().split(self.pSeparator);
                 uId = 1
                 while True:
                     if not line:
@@ -151,31 +136,25 @@ class pycsv_reader(object):
                         row = clean_string(row)
                         ##Put everything as ascii string.
                         row=row.encode('utf-8').decode('utf-8','ignore').encode("utf-8")
-
                         ##row = row.encode('ascii','ignore')
                         row = row.replace('"','')
-                        line = row.split(',')
+                        line = row.split(self.pSeparator)
                         ##line = self.pFile.readline().split(',')
-                        
-                       
                 ##Move the cursor back to top of the csv file.
                 self.pConn.commit()
                 self.pFile.seek(0,0)
                 if (self.pFirstLineIsHeader == True):
                     ##Move the file cursor to second line.
                     self.pFile.readline() ##just throw it away.
-         
                 return pydset(self.dBase,tabName,srcType= ' TABLE ')    
             except Exception, err:
                 print_error(err,"pycsv_reader.to_database")
-                
-                
             
     def reader(self, numLines=-9999):
         rows = []
         nLines = 0
         for row in self.pFile:
-            r,rowList = clean_text(row, ',')
+            r,rowList = clean_text(row, self.pSeparator)
             rows.append(rowList)
             nLines = nLines+1
             if(numLines != -9999 and nLines>=numLines):
