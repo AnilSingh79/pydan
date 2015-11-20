@@ -1,6 +1,7 @@
 '''
 Created on Oct 7, 2015
 
+
 @author: Anil Singh, for Daddy's Ersa :)
 '''
 
@@ -33,8 +34,7 @@ from pypaint.pygraph import  TGraph
 class pydset(object):
     def __init__(self,dbaseName,srcName, srcType=' VIEW '):
         '''
-         pydset is always created for a table existing 
-        already inside the database. 
+        A pydset instance is initialized over an existing table in SQLITE file.
         '''
         try:
             self.dbaseName = dbaseName;
@@ -44,10 +44,8 @@ class pydset(object):
             self.colNames = []
             self.colTypes = {}
             query = 'PRAGMA table_info('+self.srcName+')'
-            
             colDetails = self.pConn.cursor().execute(query)
             numrows = 0
-            
             for colDetail in colDetails:
                 colName,g = clean_text(colDetail[1])
         
@@ -72,7 +70,13 @@ class pydset(object):
         except Exception as err:
             print_error(err,'drop')
                         
-    def merge_to(self, guy, resultTab, resultType=' VIEW ', on=[]): 
+    def union(self, guy, resultTab, resultType=' VIEW ', on=[]):
+        '''
+        Append two pydset objects. The regular SQL UNION rules apply:
+          1. Both objects have same number of columns.
+          2. Corresponding columns must have same name.
+          3. Corresponding columns must have same type.
+        ''' 
         try:
             self.pConn.execute(drop_table_qry(resultTab,resultType))
             self.pConn.commit()
@@ -91,14 +95,13 @@ class pydset(object):
                 self.colNames.append(var)
                 d[var] = self.colTypes[var]
             self.colTypes = d
-                
         except Exception as err:
-            print_error(err, 'pydset.merge_to')   
+            print_error(err, 'pydset.union_to')   
+
 
     def to_numpy(self,varNames=['*'], conditions=['1=1'],groupBy=[],orderBy=[],limit=-1,offset=-1):
         '''
-          Selects a subset of variables, subject to conditions,limits, offsets and ordered by a criteria,
-          and returns a numpy array.
+          Returns a subset of data, as a numpy table
         '''
         try:
             query = select_data_qry(varNames,self.srcName,conditions,groupBy,orderBy,limit,offset)
@@ -112,8 +115,7 @@ class pydset(object):
 
     def to_csv(self,fileName, varNames=['*'], conditions=['1=1'],groupBy=[],orderby=[],limit=-1,offset=-1):
         '''
-          Selects a subset of variables, subject to conditions,limits, offsets and ordered by a criteria,
-          and returns a numpy array.
+         Writes a subset of data, as a csv file on disk.
         '''
         try:
             ofile = open(fileName,'w')  
@@ -125,11 +127,16 @@ class pydset(object):
             for record in results:
                 ofile.write(','.join(map(str,record))+'\n')
             ofile.close()
-
         except Exception as err:
             print_error(err,'pydset.to_csv')
             
     def to_database(self,tabName,varNames=['*'], conditions=['1=1'],groupBy=[],orderBy=[],limit=-1,offset=-1):
+        '''
+         Writes a subset of data, as a table in SQLITE file.
+         No pydset object is returned.
+         
+         Note: Why do we even need this when we have self.get? consider deprecating.
+        '''
         try:
             query = ' CREATE TABLE '+tabName+' AS SELECT * FROM '+self.srcName
             self.pConn.cursor().execute(query)
@@ -140,8 +147,9 @@ class pydset(object):
         except Exception as err:
             print_error(err,'pydset.to_database')
             
-    def update_column(self, colName, newVal, conditions=['1=1'],returnQueryOnly='FALSE'):
+    def update(self, colName, newVal, conditions=['1=1'],returnQueryOnly='FALSE'):
         '''
+          Assume Table : FirstName, LastName, Description
           Example: Set 'Description' to 'Idiot' where 'LastName' is 'Gaandhi' and 'FirstName' is 'Raahul'.
         '''
         try:
@@ -154,25 +162,22 @@ class pydset(object):
                 self.pConn.cursor().execute(query)
                 self.pConn.commit()
         except Exception as err:
-            print_error(err, 'pydset.update_column')
+            print_error(err, 'pydset.update')
     
     def get(self,resultTab,resultType=' VIEW ',varNames=['*'],srcName='',conditions = ['1=1'],groupBy = [],orderBy = [],limit=-1, offset=-1,returnQueryOnly=False):
         '''
-          This function is a bit un-asthetic since a nasty person can use it to 
-          mine data from tables not associated to this object instance.
-          Let us not use it that ugly way.
+         Writes a subset of data, as a VIEW or TABLE and returns a pydset object bound to new table.        
         '''
         try:
             if (len(varNames)==1 and varNames[0]=='*'):
                 varNames = [var for var in self.colNames]
-           
+            ##Drop if there already is a table with name 'resultTab'
             self.pConn.cursor().execute(drop_table_qry(resultTab,resultType))
             self.pConn.commit()
             if srcName=='':
                 srcName = self.srcName
             else:
                 srcName = '('+srcName+')'
-            
             query = select_data_qry(varNames=varNames,
                                     srcNames=[srcName],
                                     conditions=conditions,
@@ -180,7 +185,6 @@ class pydset(object):
                                     groupby=groupBy,
                                     limit = limit,
                                     offset= offset)
-             
             query = '\nCREATE ' + resultType + ' '+resultTab+" AS "+query
             if returnQueryOnly == True:
                 return query 
@@ -192,15 +196,14 @@ class pydset(object):
             for varName in pv.colTypes:
                 if varName in self.colTypes:
                     pv.colTypes[varName] = self. colTypes[varName]
-            
             return pv
-                    
         except Exception as err:
             print_error(err,'pydset.get')
 
     def get_chunk(self,resultTab, resultType=' VIEW ',fLine=1, lLine=2, varNames=[], conditions = ['1=1'],orderBy=[],returnQueryOnly=False):
         '''
-          Example: Order by number of years in jail, return the guys between rank-1 to rank-17
+          Set a subset of data between fLine, lLine subject to certain conditions. 
+          Example: Order people by number of years in jail, return the guys between rank-1 to rank-17
         '''
         try:        
             if fLine < 1:
@@ -239,20 +242,22 @@ class pydset(object):
         except Exception as err:
             print_error(err, 'join_qry') 
                   
-    def columns_to_rows(self, resultTab, rsltCol1Name, rsltCol2Name, rsltCol1Type,dynamicCols,fixedCols=[]):
+    def columns_to_rows(self, resultTab, rsltCol1Name, rsltCol2Name,rsltCol1Type, dynamicCols,fixedCols=[],returnQueryOnly=False):
         '''
-        Really...? Do I have a transpose function?
+         Increase number of rows by converting multiple columns of related data into row form.
         '''
         try:
             ##Raise value error if dynamicCols is empty
-            ##Check if all the columns under merge have same type.
+            if (len(dynamicCols)==0):
+                raise ValueError('pydset.column_to_rows: dynamicCols can not be empty')
+            ##Check if all the columns under union have same type.
             allSameType= True
             dataType = self.colTypes[dynamicCols[0]]            
             for col in dynamicCols:
                 allSameType = allSameType and (self.colTypes[col] == dataType)
             if allSameType == False:
-                pass##raise valueError and exit.             
-          
+                raise ValueError('pydset.column_to_rows: dynamicCols should be of same type') 
+            ##Let us determine which column names are not going to change.
             fixedColTypes = []    
             if len(fixedCols)==0:  
                 for col in self.dynamicCols:
@@ -263,7 +268,12 @@ class pydset(object):
                         fixedColTypes.append(self.colTypes[col])
             else:
                 fixedColTypes = [self.colType[col] for col in fixedCols]
-            
+            ##Check of the fixed columns lead to unique tuples.
+            uniqueCount = self.pConn.execute('SELECT COUNT(*) FROM (SELECT DISTINCT '+','.join(fixedCols)+' FROM '+self.srcName+')').fetchone()[0]
+            totalCount  = self.pConn.execute('SELECT COUNT(*) FROM (SELECT'+','.join(fixedCols)+' FROM '+self.srcName+')').fetchone()[0]
+            if uniqueCount != totalCount:
+                raise ValueError('pydset.column_to_rows: fixedCols must yield a stable set of rows')       
+            ##Get on with the actual transposing.
             queryBox= []    
             for i in range(0,len(dynamicCols)):
                 q = select_data_qry(
@@ -272,9 +282,11 @@ class pydset(object):
                                     srcNames = [self.srcName]
                                     )
                 queryBox.append(q)
-                                
+                      
             query = '\nUNION ALL\n'.join(queryBox)
             query = 'CREATE TABLE '+resultTab+' AS \n'+query
+            if returnQueryOnly == True:
+                return query
             ##print query
             self.pConn.execute('DROP TABLE IF EXISTS '+resultTab)
             self.pConn.execute(query)   
@@ -285,11 +297,10 @@ class pydset(object):
             print_error(err, 'pydset.columns_to_rows')
     
             
-    def get_aggregate(self,resultTab,resultType=' VIEW ',aggOp=' SUM ', varNames=['*'],conditions = ['1=1'],groupBy=[],orderBy = [],limit=-1, offset=-1,returnQueryOnly=False):
+    def aggregate(self,resultTab,resultType=' VIEW ',aggOp=' SUM ', varNames=['*'],conditions = ['1=1'],groupBy=[],orderBy = [],returnQueryOnly=False):
         '''
-        --LOOK AT THE COLLAPSE FUNCTION FROM ORIGINAL IMPLEMENTATION... INCLUDE THAT SHIT HERE.
-        -AGGREGATES SOME OF THE COLUMNS.
-        Demonstration: 
+         Collapse multiple rows using aggOp operation, write to sqlite and return pydset object.
+         Demonstration: 
             Given a dataset like:
                 store1, item1, sale11
                 store1, item2, sale12
@@ -326,14 +337,16 @@ class pydset(object):
                           conditions=conditions,
                           groupBy = groupBy,
                           orderBy = orderBy,
-                          limit=limit, 
-                          offset=offset,
                           returnQueryOnly=returnQueryOnly
                           )
         except Exception as err:
             print_error(err,'pydset.aggregate')
             
     def get_sum(self,resultTab,resultType=' VIEW ', varNames=['*'],conditions = ['1=1'],groupBy=[],orderBy = [],limit=-1, offset=-1,returnQueryOnly=False):
+        '''
+         Calculate SUM of each variable in varNames, as a function of variables in groupBy. Write summary to sqlite and return pydset object.
+        '''
+        
         try:
             return self.aggregate(
                                   resultTab = resultTab,
@@ -350,7 +363,10 @@ class pydset(object):
         except Exception as err:
             print_error(err, 'pydset.sum')
                            
-    def get_count(self,resultTab,resultType= ' VIEW ',groupBy=[],orderBy = []):  
+    def get_count(self,resultTab,resultType= ' VIEW ',groupBy=[],orderBy = []):
+        '''
+        Writes frequencies correspoding to each unique combination of variables in 'groupBy' to sqlite and return pydset object. 
+        '''  
         try:             
             cVars = [var for var in groupBy]
             cVars.append(' COUNT('+cVars[0]+') as freq')                
