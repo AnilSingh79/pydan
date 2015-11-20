@@ -67,10 +67,10 @@ class pydset(object):
         '''
         try:
             query = drop_table_qry(tabName=self.srcName,tabType=self.srcType)
-            self.pConn.cursor.execute(query)
+            self.pConn.cursor().execute(query)
             self.pConn.commit()
         except Exception as err:
-            print_error(err,'drop')
+            print_error(err,'pydset.drop')
                         
     def union(self, guy, resultTab, resultType=' VIEW ', on=[]):
         '''
@@ -101,7 +101,7 @@ class pydset(object):
             print_error(err, 'pydset.union_to')   
 
 
-    def update(self, colName, newVal, conditions=['1=1'],returnQueryOnly='FALSE'):
+    def update(self, colName, newVal, conditions=['1=1'],returnQueryOnly=False):
         '''
           Assume Table : FirstName, LastName, Description
           Example: Set 'Description' to 'Idiot' where 'LastName' is 'Gaandhi' and 'FirstName' is 'Raahul'.
@@ -117,8 +117,19 @@ class pydset(object):
                 self.pConn.commit()
         except Exception as err:
             print_error(err, 'pydset.update')
+            
+    def apply(self, colName, funcName, func, numparams, conditions=['1=1'],returnQueryOnly=False):
+        try:
+            self.pConn.create_function(funcName,func=func,narg=numparams)
+            self.update(colName,newVal=funcName+'('+colName+')',
+                                conditions=conditions,
+                                          returnQueryOnly=returnQueryOnly)
+        except Exception as err:
+            print_error(err,'pydset.apply')
     
-    def subset(self,resultTab,resultType=' VIEW ',varNames=['*'],srcName='',conditions = ['1=1'],groupBy = [],orderBy = [],limit=-1, offset=-1,returnQueryOnly=False):
+    def subset(self,resultTab,resultType=' VIEW ',varNames=['*'],srcName='',
+                    conditions = ['1=1'],groupBy = [],orderBy = [],limit=-1, 
+                    offset=-1,returnQueryOnly=False):
         '''
          Writes a subset of data, as a VIEW or TABLE and returns a pydset object bound to new table.        
         '''
@@ -144,20 +155,46 @@ class pydset(object):
                 return query 
             self.pConn.cursor().execute(query)
             self.pConn.commit()
-            pv = pydset(self.dbaseName,resultTab)
-            pv.srcName = resultTab
-            pv.srcType = resultType             
-            for varName in pv.colTypes:
-                if varName in self.colTypes:
-                    pv.colTypes[varName] = self. colTypes[varName]
+            pv = pydset(dbaseName=self.dbaseName,srcName=resultTab, srcType
+                                                                   =resultType)
+#             pv = pydset(self.dbaseName,resultTab)
+#             pv.srcName = resultTab
+#             pv.srcType = resultType             
+#             for varName in pv.colTypes:
+#                 if varName in self.colTypes:
+#                     pv.colTypes[varName] = self. colTypes[varName]
             return pv
         except Exception as err:
             print_error(err,'pydset.get')
 
-    def get_chunk(self,resultTab, resultType=' VIEW ',fLine=1, lLine=2, varNames=[], conditions = ['1=1'],orderBy=[],returnQueryOnly=False):
+    def transform(self,resultTab, resultType, colTypes,conditions=['1=1'],
+                                             returnQueryOnly=False):
+        '''
+         colTypes={varName:varType}
+         Return table of varNames in colTypes, with proper type information.
+        '''
+        try:
+            varNames =[]
+            for varName in colTypes:
+                varType = colTypes[varName]
+                if varType.lower().strip() == 'NUMBER'.lower():
+                    varNames.append('1*'+varName+'  '+varName)
+                elif varType.lower().strip()=='DATE'.lower():
+                    varNames.append('DATE('+varName+')  '+varName)
+                else: varNames.append(varName)
+            return self.subset(resultTab=resultTab, resultType=resultType, 
+                                        varNames=varNames,conditions=conditions,
+                                        returnQueryOnly=returnQueryOnly)
+        except Exception as err:
+            print_error(err, 'pydset.transform')
+            
+    def get_chunk(self,resultTab, resultType=' VIEW ',fLine=1, lLine=2, 
+                       varNames=[], conditions = ['1=1'],orderBy=[],
+                                    returnQueryOnly=False):
         '''
           Set a subset of data between fLine, lLine subject to certain conditions. 
-          Example: Order people by number of years in jail, return the guys between rank-1 to rank-17
+          Example: Order people by number of years in jail, return the guys 
+          between rank-1 to rank-17
         '''
         try:        
             if fLine < 1:
@@ -444,10 +481,10 @@ class pydset(object):
                 print_tuple(row)
             print cosmetic_line(len(self.colNames), 19)
         except Exception as err:
-            print_error(err,'pydataview.show')      
+            print_error(err,'pydset.show')      
     
     def head(self,num=-1):
-        print "\nWARNING (pydataview.head): Viewing-only tool invoked!"
+        print "\nWARNING (pydset.head): Viewing-only tool invoked!"
         if num==-1:
             num = self.count()
         fLine = 1
@@ -455,13 +492,13 @@ class pydset(object):
         self.show(fLine,lLine)
     
     def tail(self,num):
-        print "\nWARNING (pydataview.tail): Viewing-only tool invoked!"
+        print "\nWARNING (pydset.tail): Viewing-only tool invoked!"
         count = self.count()        
         fLine = count-num+1
         lLine = count
         self.show(fLine, lLine)
 
-    def columns(self):
+    def columns(self, printIt=True):
         '''
           Arguments: None
           Description: Prints the name of columns and the corresponding
@@ -471,12 +508,13 @@ class pydset(object):
         for key in ret_dict:
             if ret_dict[key]=='':
                 ret_dict[key]='NUMBER'
-        print cosmetic_line(2,19)
-        print_tuple(("Variable","Type"),20)
-        print cosmetic_line(2,19)        
-        for key in self.colTypes:
-            print_tuple((key,ret_dict[key]),20)
-        print cosmetic_line(2,19)        
+        if printIt == True:
+            print cosmetic_line(2,19)
+            print_tuple(("Variable","Type"),20)
+            print cosmetic_line(2,19)        
+            for key in self.colTypes:
+                print_tuple((key,ret_dict[key]),20)
+            print cosmetic_line(2,19)        
         return ret_dict
         
     def describe(self,varNames=[]):
@@ -495,7 +533,7 @@ class pydset(object):
                 metrics['median']=self.median(varName, count=cnt)
                 return metrics
             except Exception as err:
-                print_error(err,'pydataview.describe.describe_column' )
+                print_error(err,'pydset.describe.describe_column' )
 
         try:    
             cosmetic = cosmetic_line(7,19)
@@ -520,7 +558,7 @@ class pydset(object):
                            str(metrics['count'])),20)  
             print cosmetic
         except Exception as err:
-            print_error(err, 'pydataview.desribe')         
+            print_error(err, 'pydset.desribe')         
             
             
             
@@ -546,8 +584,8 @@ class pydset(object):
             else:
                 return input
         try:
-            if ('VARCHAR'.lower() != self.colTypes[colName].lower().strip()):
-                raise ValueError("pydset.check_numericity: Operation permitted for text columns only.")
+#             if ('VARCHAR'.lower() != self.colTypes[colName].lower().strip()):
+#                 raise ValueError("pydset.check_numericity: Operation permitted for text columns only.")
             results = self.get(colName)
             isNumber = True
             colVals  = []
@@ -557,12 +595,12 @@ class pydset(object):
                 isNumber = isNumber and (uv.isdecimal() or uv.isnumeric())
             return isNumber 
         except Exception as err:
-            print_error(err, 'pydataset.check_numericity')
+            print_error(err, 'pydset.check_numericity')
     
     def check_temporicity(self, colName, dateFormat='yyyy-mm-dd'):        
         try:
-            if self.colTypes[colName]!='VARCHAR':
-                raise ValueError("pydset.check_numericity: Operation permitted for text columns only.")
+#             if self.colTypes[colName]!='VARCHAR':
+#                 raise ValueError("pydset.check_numericity: Operation permitted for text columns only.")
             matcher = {'dd-mm-yyyy':'\d{1,2}-\d{1,2}-\d{4}','yyyy-mm-dd':'\d{4}-\d{1,2}-\d{1,2}'}
             isDate = True           
             results = self.get(colName)               
@@ -578,24 +616,30 @@ class pydset(object):
    
         try:
             ##First identify numeric columns.
+            colTypes={}
             for colName in self.colNames:
                 isNum = self.check_numericity(colName)
-                
                 if (isNum):
-                    self.colTypes[colName] = 'NUMBER'
+                    colTypes[colName] = 'NUMBER'
                 elif (self.check_temporicity(colName,dateFormat) == True):
-                    self.colTypes[colName] = 'DATE'
+                    colTypes[colName] = 'DATE'
+                else :
+                    colTypes[colName]='VARCHAR'
+            return colTypes
         except Exception as err:
-            print_error(err, 'pydataset.analyze_col_types')
+            print_error(err, 'pydset.analyze_col_types')
 
             
-    def __discrete_count(self, resultTab,resultType = ' VIEW ',lowBinDict={}, highBinDict={},conditions=['1=1'], returnQueryOnly=False):
+    def __discrete_count(self, resultTab,resultType = ' VIEW ',lowBinDict={}, 
+                                  highBinDict={},conditions=['1=1'], 
+                                               returnQueryOnly=False):
         '''
         lBinDict: {var1:[1,2,3,4], var2:[1,2,3,4,5]... so on}
         hBinDict: {var1:[2,3,4,5],var2:[2,3,4,5]... so on}
         '''
         try:
-            query = get_binning_query(self.srcName,lowBinDict=lowBinDict,hiBinDict=highBinDict)
+            query = get_binning_query(self.srcName,lowBinDict=lowBinDict,
+                                      hiBinDict=highBinDict)
             
             
             varNames = [v for v in lowBinDict.keys()]
@@ -611,8 +655,8 @@ class pydset(object):
                             )
             return hist
         except Exception as err:
-            print_error(err, 'pydataview.__discrete_count')
-    
+            print_error(err, 'pydset.__discrete_count')
+
     def skeleton(self, tabName, varNames=[]):       
         if self.pConn is None:
             raise RuntimeError("pycvs is not connected to a database yet")
@@ -639,7 +683,7 @@ class pydset(object):
                         pv.colTypes[varName] = self. colTypes[varName]
                 return pv
             except Exception as err:
-                print_error(err, 'pydataview.skeleton')
+                print_error(err, 'pydset.skeleton')
 
     def hist1D(self,outfile,varName,histName,title, nBins=None,minRange=None,maxRange =None,lBinEdges=[],hBinEdges=[]):
         try:
@@ -663,7 +707,7 @@ class pydset(object):
                 return rHist
         except Exception as err:
             print_error(err, 'pydset.hist1D')
-     
+
     def graph1D(self,outfile,varNameX,varNameY, formatX='',formatY='',plotName='test',plotTitle='test',xType='NUMBER',yType='NUMBER'):
         try:
             query = 'SELECT '+varNameX+', '+varNameY+' FROM '+self.srcName+' ORDER BY '+varNameX
@@ -718,7 +762,7 @@ class pydset(object):
             ofile.close()
         except Exception as err:
             print_error(err,'pydset.to_csv')
-            
+
     def to_database(self,tabName,varNames=['*'], conditions=['1=1'],groupBy=[],orderBy=[],limit=-1,offset=-1):
         '''
          Writes a subset of data, as a table in SQLITE file.
@@ -735,10 +779,6 @@ class pydset(object):
             return pd
         except Exception as err:
             print_error(err,'pydset.to_database')
-            
-
-            
-
 
 def Main():
     

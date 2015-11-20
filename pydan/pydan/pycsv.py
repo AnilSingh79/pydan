@@ -94,11 +94,11 @@ class pycsv_reader(object):
                     continue
                 else:
                     query = insert_qry(tabName,line,uniqueId=uId)
-                    print query
+                    ##print query
                     pConn.cursor().execute(query)
                     uId = uId+1 #: This one srews up more than help
                     row = self.pFile.readline()
-                    row = clean_string(row)
+                    row = clean_string(row,replaceHyphen=False)
                     ##Put everything as ascii string.
                     row=row.encode('utf-8').decode('utf-8','ignore').encode("utf-8")
                     ##row = row.encode('ascii','ignore')
