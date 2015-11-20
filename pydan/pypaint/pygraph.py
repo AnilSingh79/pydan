@@ -5,10 +5,7 @@ Created on Nov 19, 2015
 '''
 import sqlite3
 import matplotlib.pyplot as plt
-##from pydan.pydata import pydataview
 from pypaint.pyaxis import TCosmetic
-import matplotlib.dates as mdates
-from matplotlib.lines import drawStyles
 
 class TGraph(object):
     def __init__(self,dbaseName,name,status='new',**kwargs):

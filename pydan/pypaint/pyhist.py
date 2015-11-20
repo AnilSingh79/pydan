@@ -4,22 +4,20 @@ Created on Oct 22, 2015
 @author: Anil Singh
 '''
 import sqlite3
-from pypaint.pyaxis import TCosmetic
+from pypaint.pycosmetic import pycosmetics
 
 
         
 class TH1D(object):
     '''
-    AT THE MOMENT I HAVE CHOSEN TO GO BY WAY OF USING
-    TABLES BASED DESIGN.. TIME WILL TELL IF THIS ONE 
-    WILL EVER WORK.
-    '''
-    
+       A 1-Dimensional histogram.
+       ---- A work under progress. 
+    '''    
     def __init__(self,dbaseName,name,status='new',**kwargs):
        
         self.dbaseName = dbaseName;
         self.pConn = sqlite3.connect(dbaseName)
-        self.pCosmetics = TCosmetic()
+        self.pCosmetics = pycosmetics()
         self.keysTab = name+'keys'
         self.dataTab = name+'data'
         
@@ -41,8 +39,7 @@ class TH1D(object):
             for l,h in zip(lbins,hbins):
                 query = 'INSERT INTO '+name+'data'+' VALUES('+str(l)+', '+str(h)+', 0, 0)'
                 self.pConn.execute(query)
-            self.pConn.commit()            
-            
+            self.pConn.commit()     
         
     def fill(self,value=None,**kwargs):
         if value != None:
@@ -117,8 +114,6 @@ class TH1D(object):
             bins.append(val)
         return bins
     
-        
-
     def get_bin_centers(self):
         return self.__vector('binLowEdge+(binHighEdge-binLowEdge)*0.5 as binCenter', orderby='binLowEdge')
     
