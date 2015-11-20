@@ -52,7 +52,7 @@ def preAnalysis():
     colTypes = data.analyze_columns()
     for col in colTypes: print col,'    ', colTypes[col]
     
-    dset = data.transform(resultTab=' pydanTable ', resultType=' TABLE ', colTypes=colTypes, returnQueryOnly=False)
+    dset = data.transform(resultTab='pydanTable', resultType=' TABLE ', colTypes=colTypes, returnQueryOnly=False)
     data.drop()
     data = None    
     return dset

@@ -41,8 +41,8 @@ class pydset(object):
         try:
             self.dbaseName = dbaseName;
             self.pConn = sqlite3.connect(dbaseName)
-            self.srcName = srcName
-            self.srcType = srcType
+            self.srcName = srcName.strip()
+            self.srcType = srcType.strip()
             self.colNames = []
             self.colTypes = {}
             query = 'PRAGMA table_info('+self.srcName+')'
@@ -50,7 +50,6 @@ class pydset(object):
             numrows = 0
             for colDetail in colDetails:
                 colName,g = clean_text(colDetail[1])
-        
                 colType = clean_string(colDetail[2])
                 self.colNames.append(colName) 
                 self.colTypes[colName]=colType
