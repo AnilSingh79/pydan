@@ -156,12 +156,12 @@ class pydset(object):
             self.pConn.commit()
             pv = pydset(dbaseName=self.dbaseName,srcName=resultTab, srcType
                                                                    =resultType)
-#             pv = pydset(self.dbaseName,resultTab)
-#             pv.srcName = resultTab
+#            pv = pydset(self.dbaseName,resultTab)
+#           pv.srcName = resultTab
 #             pv.srcType = resultType             
-#             for varName in pv.colTypes:
-#                 if varName in self.colTypes:
-#                     pv.colTypes[varName] = self. colTypes[varName]
+            for varName in pv.colTypes:
+                 if varName in self.colTypes:
+                     pv.colTypes[varName] = self. colTypes[varName]
             return pv
         except Exception as err:
             print_error(err,'pydset.get')
@@ -181,9 +181,12 @@ class pydset(object):
                 elif varType.lower().strip()=='DATE'.lower():
                     varNames.append('DATE('+varName+')  '+varName)
                 else: varNames.append(varName)
-            return self.subset(resultTab=resultTab, resultType=resultType, 
+            pv = self.subset(resultTab=resultTab, resultType=resultType, 
                                         varNames=varNames,conditions=conditions,
                                         returnQueryOnly=returnQueryOnly)
+            for var  in colTypes:
+                pv.colTypes[var]=colTypes[var]
+            return pv
         except Exception as err:
             print_error(err, 'pydset.transform')
             
@@ -397,6 +400,13 @@ class pydset(object):
         except Exception as err:
             print_error(err, 'pydset.get_value')
     
+    def total(self,varName,conditions=['1=1']):
+        try:
+            return self.__scalar(varString='SUM('+varName+')',
+                                 conditions=conditions)
+        except Exception as err:
+            print_error(err,'pydset.total')
+            
     def count(self,varName='*', conditions = ['1=1']): 
         try:
             return self.__scalar('COUNT('+varName+')', conditions)            
@@ -405,7 +415,7 @@ class pydset(object):
                    
     def mean(self, varName, cnt=-1, conditions=['1=1']):
         try:
-            s = self.sum(varName,conditions)
+            s = self.total(varName,conditions)
             if cnt < -1:
                 cnt = self.count(varName,conditions)
             return s/cnt
@@ -421,7 +431,7 @@ class pydset(object):
             if mean == -1:
                 mean = self.mean(varName,conditions,count=count)
             varString = ' ('+str(varName)+' - '+str(mean)+')*('+str(varName)+' - '+str(mean)+') '
-            sumSq = self.sum(varString, conditions)
+            sumSq = self.total(varString, conditions)
             ##stdDev = math.sqrt(sumSq/count)
             return sumSq
         except Exception as err:
@@ -523,7 +533,7 @@ class pydset(object):
                 metrics['varName']=varName
                 cnt = self.count(varName)
                 metrics['count']  = cnt
-                metrics['sum']=self.sum(varName)
+                metrics['sum']=self.total(varName)
                 metrics['min']=self.min(varName)
                 metrics['max']=self.max(varName)
                 m= self.mean(varName, cnt)
@@ -542,11 +552,14 @@ class pydset(object):
             if len(varNames)==0 or ('*' in varNames):
                 varNames = []
             for x in self.colNames:
-                if 'PYDAN_ROW_NUM' in x or (self.colTypes[x] in ('VARCHAR','DATE')):
+                if 'PYDAN_ROW_NUM' in x or (self.colTypes[x] in ('VARCHAR','DATE','TEXT')):
                     pass
                 else:
+                
                     varNames.append(x)
             for varName in varNames:
+                if self.colTypes[varName].lower().strip() != 'NUMBER'.lower():
+                    continue
                 metrics = describe_column(varName)
                 print_tuple((str(metrics['varName']),
                            str(metrics['mean']),

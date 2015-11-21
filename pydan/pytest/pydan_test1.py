@@ -60,5 +60,6 @@ def preAnalysis():
 def Main():
     dset = preAnalysis()
     dset.columns()
-
+    dset.describe()
+    for c in dset.colTypes: print c, "   ",dset.colTypes[c]
 Main()
