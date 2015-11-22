@@ -462,7 +462,7 @@ class pydset(object):
             index = 1+(probability*(nRows-1))
             floor = int(math.floor(index))
             ceill  = int(math.ceil(index))
-            print 'C: ',index,',',floor,',',ceill
+            ####print 'C: ',index,',',floor,',',ceill
             limit =1
             offset = 1
             if index==floor==ceill:
@@ -579,7 +579,7 @@ class pydset(object):
                 m= self.mean(varName, cnt)
                 metrics['mean']=m
                 metrics['stddev']=self.std(varName,m,cnt)
-                metrics['median']=self.median(varName, count=cnt)
+                metrics['median']=self.median(varName)
                 return metrics
             except Exception as err:
                 print_error(err,'pydset.describe.describe_column' )
