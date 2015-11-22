@@ -58,8 +58,22 @@ def preAnalysis():
     return dset
         
 def Main():
-    dset = preAnalysis()
-    dset.columns()
-    dset.describe()
-    for c in dset.colTypes: print c, "   ",dset.colTypes[c]
+    #dset = preAnalysis()
+    #dset.columns()
+    #dset.describe()
+    #for c in dset.colTypes: print c, "   ",dset.colTypes[c]
+    import numpy as np
+    p = []
+    for i in range(1,21):
+        p.append(i)
+    print p
+    print np.percentile(np.array(p),10)
+    csv = pycsv_reader("C:\\Users\\SingAn22\\Desktop\\hcsvreader\\test.csv")
+    d = csv.to_database(tabName='idiot', database='C:\\Users\\SingAn22\\Desktop\\hcsvreader\\tester.db',varTypes={'var':'NUMBER'})
+    #v = d.transform(resultTab = 'idiot2',resultType='TABLE',colTypes=d.analyze_columns())
+    d.describe()
+    print 'percentile: ',d.quantile('var',0.5)
+    
+    
+    
 Main()

@@ -7,7 +7,7 @@ Created on Oct 7, 2015
 
 
 import sqlite3
-#import math
+import math
 import re
 import numpy as np
 import datetime as dt
@@ -263,9 +263,11 @@ class pydset(object):
                 fixedColTypes = [self.colType[col] for col in fixedCols]
             ##Check of the fixed columns lead to unique tuples.
             uniqueCount = self.pConn.execute(
-                            'SELECT COUNT(*) FROM (SELECT DISTINCT '+','.join(fixedCols)+' FROM '+self.srcName+')').fetchone()[0]
+                    'SELECT COUNT(*) FROM (SELECT DISTINCT '
+                  +','.join(fixedCols)+' FROM '+self.srcName+')').fetchone()[0]
             totalCount  = self.pConn.execute(
-                            'SELECT COUNT(*) FROM (SELECT'+','.join(fixedCols)+' FROM '+self.srcName+')').fetchone()[0]
+                            'SELECT COUNT(*) FROM (SELECT'+','.join(fixedCols)
+                            +' FROM '+self.srcName+')').fetchone()[0]
                             
             if uniqueCount != totalCount:
                 raise ValueError('pydset.column_to_rows: fixedCols must yield a stable set of rows')       
@@ -449,15 +451,53 @@ class pydset(object):
         except Exception as err:
             print_error(err, 'pydset.max')
     
-    def median(self, varName,count=-1.0,conditions=['1=1']):
+    def quantile(self,varName,probability, conditions=['1=1']):
+        '''
+        return sample quantile for probability in dataset subject to
+        conditions. 
+        '''
         try:
-            if count<0:
-                count = self.count(varName,conditions)
-            query = get_median_qry(self.srcName,varName,count)
-            results = self.pConn.cursor().execute(query)
-            return results.fetchone()[0]
+            nRows = self.count(conditions=conditions)
+            if (nRows==0):return 0
+            index = 1+(probability*(nRows-1))
+            floor = int(math.floor(index))
+            ceill  = int(math.ceil(index))
+            print 'C: ',index,',',floor,',',ceill
+            limit =1
+            offset = 1
+            if index==floor==ceill:
+                limit =1
+                offset = index-1
+            else:
+                limit = 2
+                offset = floor-1
+            
+            query = select_data_qry(
+                        varNames=[varName],
+                        srcNames=[self.srcName],
+                        conditions=conditions,
+                        orderby=[varName],
+                        limit = limit,
+                        offset = offset)
+            ##print query
+            result = self.pConn.cursor().execute(query)
+            if index==floor==ceill:
+                return result.fetchone()[0]
+            else :
+                fVal = result.fetchone()[0]
+                cVal = result.fetchone()[0]
+                return (index-floor)*cVal + (ceill-index)*fVal
+        except Exception as err:
+            print_error(err,'pydset.percentile')
+        
+    def median(self, varName,conditions=['1=1']):
+        try:
+            return self.quantile(varName, probability=0.5,
+                                           conditions=conditions)
         except Exception as err:
             print_error(err, 'pydset.median') 
+            
+            
     ###Anil : Below are some fun functions who are provided to be able to explore the 
     ### data. They might not be very useful for production level analytic systems but
     ### are of great values while one tries to sniff data and design an analysis.
@@ -554,20 +594,18 @@ class pydset(object):
             for x in self.colNames:
                 if 'PYDAN_ROW_NUM' in x or (self.colTypes[x] in ('VARCHAR','DATE','TEXT')):
                     pass
-                else:
-                
+                else:                
                     varNames.append(x)
             for varName in varNames:
-                if self.colTypes[varName].lower().strip() != 'NUMBER'.lower():
-                    continue
-                metrics = describe_column(varName)
-                print_tuple((str(metrics['varName']),
-                           str(metrics['mean']),
-                           str(metrics['min']), 
-                           str(metrics['max']),
-                           str(metrics['median']), 
-                           str(metrics['stddev']), 
-                           str(metrics['count'])),20)  
+                if self.colTypes[varName].lower().strip() == 'NUMBER'.lower():
+                    metrics = describe_column(varName)
+                    print_tuple((str(metrics['varName']),
+                               str(metrics['mean']),
+                               str(metrics['min']), 
+                               str(metrics['max']),
+                               str(metrics['median']), 
+                               str(metrics['stddev']), 
+                               str(metrics['count'])),20)  
             print cosmetic
         except Exception as err:
             print_error(err, 'pydset.desribe')         
@@ -596,13 +634,13 @@ class pydset(object):
             else:
                 return input
         try:
-#             if ('VARCHAR'.lower() != self.colTypes[colName].lower().strip()):
+#            if ('VARCHAR'.lower() != self.colTypes[colName].lower().strip()):
 #                 raise ValueError("pydset.check_numericity: Operation permitted for text columns only.")
             results = self.get(colName)
             isNumber = True
             colVals  = []
             for value in results:
-                val = clean_string(value,replaceHyphen= False)
+                val = clean_string(str(value),replaceHyphen= False)
                 uv = make_unicode(val)
                 isNumber = isNumber and (uv.isdecimal() or uv.isnumeric())
             return isNumber 
@@ -617,7 +655,7 @@ class pydset(object):
             isDate = True           
             results = self.get(colName)               
             for value in results:
-                val = clean_string(value,replaceHyphen=False)
+                val = clean_string(str(value),replaceHyphen=False)
                 isDate = isDate and (re.match(matcher[dateFormat],val)!=None)
             return isDate        
         except Exception as err:

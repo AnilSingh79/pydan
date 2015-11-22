@@ -71,7 +71,7 @@ class pycsv_reader(object):
         for col in self.pHeader:
             print col   
             
-    def  to_database(self,tabName,database,varNames=[],varTypes=[]):
+    def  to_database(self,tabName,database,varNames=[],varTypes={}):
         '''writes the csv file to a table.
            ---returns a pydset object associated with table
         '''
@@ -81,29 +81,39 @@ class pycsv_reader(object):
             pConn.commit()
             if len(varNames)==0:
                 varNames = self.pHeader
-            query = create_table_qry(tabName,self.pHeader,varTypes,uniqueIdFlag=True)
+                
+            for var in varNames:
+                if var not in varTypes: varTypes[var]='VARCHAR'
+                else: varTypes[var]=varTypes[var].strip()
+                
+            query = create_table_qry(tabName,varDict=varTypes
+                                            ,uniqueIdFlag=True)
+            ###print query
             pConn.cursor().execute(query)
             pConn.commit()
-            line = self.pFile.readline().split(self.pSeparator);
+            line = self.pFile.readline().strip().split(self.pSeparator);
             uId = 1
             while True:
                 if not line:
                     break;
+                ##line = line.strip()
                 if (len(line)==1 and line[0]==''):
                     line = self.pFile.readline()
                     continue
                 else:
-                    query = insert_qry(tabName,line,uniqueId=uId)
-                    ##print query
+                    varVals = dict(zip(varNames,line))
+                    query = insert_qry(tabName,varDict=varTypes,
+                                               valDict=varVals,uniqueId=uId)
+                    print query
                     pConn.cursor().execute(query)
                     uId = uId+1 #: This one srews up more than help
-                    row = self.pFile.readline()
+                    row = self.pFile.readline().strip()
                     row = clean_string(row,replaceHyphen=False)
                     ##Put everything as ascii string.
                     row=row.encode('utf-8').decode('utf-8','ignore').encode("utf-8")
                     ##row = row.encode('ascii','ignore')
                     row = row.replace('"','')
-                    line = row.split(self.pSeparator)
+                    line = row.strip().split(self.pSeparator)
                     ##line = self.pFile.readline().split(',')
             ##Move the cursor back to top of the csv file.
             pConn.commit()

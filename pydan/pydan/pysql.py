@@ -9,15 +9,18 @@ import sys
 from pydan.pytools import print_error
 
 
-def create_table_qry(tabName, varNames, varTypes=[], uniqueIdFlag=False,uIdName='PYDAN_ROW_NUM'):
+def create_table_qry(tabName, varDict={}, uniqueIdFlag=False,uIdName='PYDAN_ROW_NUM'):
     try:
         query = ' CREATE  TABLE '+tabName+''' ( \n'''
         if(uniqueIdFlag == True):
             query = query + uIdName+'        VARCHAR,\n '
-        varterms = []       
-        if (len(varTypes)==0):
-            varTypes = ['VARCHAR']*len(varNames)           
-        for varname, vartype in zip(varNames,varTypes):            
+        varterms = []
+        #for var in varNames:
+        #    if var not in varTypes: varTypes[var]='VARCHAR'       
+#        if (len(varTypes)==0):
+#            for var in varNames: varTypes[var]='VARCHAR'        
+        for varname in varDict:
+            vartype = varDict[varname]            
             varterms.append('       '.join([varname,vartype]))
         query = query+ ',\n '.join(varterms)
         query = query+'\n )'
@@ -25,10 +28,21 @@ def create_table_qry(tabName, varNames, varTypes=[], uniqueIdFlag=False,uIdName=
     except Exception as err:
         print_error(err, 'pysql.create_table_qry')        
         
-def insert_qry(tabName,valList,uniqueId=0):
-    query = '''INSERT INTO '''+tabName+''' VALUES ('''+str(uniqueId)+', '
-    query = query + ','.join('"{0}"'.format(v) for v in valList)
-    query = query +')\n'
+def insert_qry(tabName,varDict,valDict,uniqueId=0):
+    query = ' INSERT INTO '+tabName+'('
+    varNames = []
+    varVals = []
+    for var in varDict:
+        varNames.append(var)
+        if (varDict[var].strip().lower()=='VARCHAR'.lower()):
+            varVals.append("'{0}'".format(valDict[var]))
+        else: varVals.append(valDict[var])
+    query += ','.join(varNames)+') VALUES ('
+    query += ','.join(varVals)+')\n'
+    ##query = query + ', '.join(varDic.keys())
+    ##query = '''INSERT INTO '''+tabName+''' VALUES ('''+str(uniqueId)+', '
+    ##query = query + ','.join('"{0}"'.format(v) for v in valList)
+    ##query = query +')\n'
     return query
 
 def select_data_qry(varNames,srcNames,conditions=['1=1'],groupby=[],orderby=[],limit=-1,offset=-1):
