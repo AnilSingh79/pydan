@@ -98,13 +98,13 @@ class TGraph(object):
                     ###histtype = self.pCosmetics.style,
                     color = self.pCosmetics.color,
                     ##hatch = self.pCosmetics.hatch,
-                    alpha = self.pCosmetics.alpha,
-                    label = self.pCosmetics.label,
+                    #alpha = self.pCosmetics.alpha,
+                    #label = self.pCosmetics.label,
                     ###edgecolor=self.pCosmetics.edgeColor,
                     linewidth = self.pCosmetics.lineWidth                                   
                     ) 
         else:
-            ax.plot_date(
+            ax.plot_date()(
                     xPoints,
                     yPoints,
                     #self.pCosmetics.style,                    

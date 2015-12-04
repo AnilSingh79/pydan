@@ -12,8 +12,7 @@ from pydan.pysql import create_table_qry, insert_qry
 from pydan.pytools import clean_text, print_error, clean_string
 
 
-
-class pycsv_reader(object):
+class pycsv_reader():
     '''
      csv reader
     '''
@@ -52,7 +51,7 @@ class pycsv_reader(object):
                 tempHeader.append(a)
             self.pHeader = tempHeader
         elif IOError:
-            print "Unable to find file: "+str(fName)
+            print ("Unable to find file: "+str(fName))
     
     def __del__(self):
         '''
@@ -63,15 +62,15 @@ class pycsv_reader(object):
     def close(self):
         try:
             self.pFile.close()            
-        except Exception, err:
+        except Exception as err:
             sys.stderr.write('ERROR: %s\n' % str(err))
 
     def toStr(self):
-        print self.pFname
+        print (self.pFname)
         for col in self.pHeader:
-            print col   
+            print (col)   
             
-    def  to_database(self,tabName,database,varNames=[],varTypes={}):
+    def  to_database(self,tabName,database,varNames=[],varTypes={},ur=False):
         '''writes the csv file to a table.
            ---returns a pydset object associated with table
         '''
@@ -87,25 +86,45 @@ class pycsv_reader(object):
                 else: varTypes[var]=varTypes[var].strip()
                 
             query = create_table_qry(tabName,varDict=varTypes
-                                            ,uniqueIdFlag=True)
+                                            ,uniqueIdFlag=False)
+            manyFlagTemporary = True
             ###print query
             pConn.cursor().execute(query)
             pConn.commit()
             line = self.pFile.readline().strip().split(self.pSeparator);
             uId = 1
+            
+            manyLines = []
+            counter = 0;
+            q = ['?']*len(varNames)
+            qr = '('+','.join(q)+')'
+            query = 'insert into '+tabName+'('+','.join(varNames)+') values '+qr
+            ####I AM UGLY CLEAN ME UP... A LOT.
+            ##print varNames
+            pConn.execute('PRAGMA synchronous=OFF');
             while True:
                 if not line:
                     break;
-                ##line = line.strip()
                 if (len(line)==1 and line[0]==''):
                     line = self.pFile.readline()
                     continue
                 else:
-                    varVals = dict(zip(varNames,line))
-                    query = insert_qry(tabName,varDict=varTypes,
-                                               valDict=varVals,uniqueId=uId)
-                    print query
-                    pConn.cursor().execute(query)
+                    '''
+                    for i in range (0,len(varNames)):
+                        var = varNames[i]
+                        val = line[i]
+                        varType = varTypes[var]
+                        if varType in ['VARCHAR','TEXT']:
+                            line[i] = "'"+val+"'"
+                    '''
+                    manyLines.append(tuple(line))
+                    if (counter%10000)==0:
+                        if counter == 0:
+                            pass
+                        else: 
+                            pConn.cursor().executemany(query,manyLines)
+                            manyLines =[]
+                    counter = counter+1
                     uId = uId+1 #: This one srews up more than help
                     row = self.pFile.readline().strip()
                     row = clean_string(row,replaceHyphen=False)
@@ -115,14 +134,16 @@ class pycsv_reader(object):
                     row = row.replace('"','')
                     line = row.strip().split(self.pSeparator)
                     ##line = self.pFile.readline().split(',')
+            pConn.cursor().executemany(query,manyLines)
             ##Move the cursor back to top of the csv file.
             pConn.commit()
             self.pFile.seek(0,0)
             if (self.pFirstLineIsHeader == True):
                 ##Move the file cursor to second line.
                 self.pFile.readline() ##just throw it away.
+            pConn.execute('PRAGMA synchronous=NORMAL');
             return pydset(database,tabName,srcType= ' TABLE ')    
-        except Exception, err:
+        except Exception as err:
                 print_error(err,"pycsv_reader.to_database")
             
     def reader(self, numLines=-9999):

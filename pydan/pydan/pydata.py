@@ -34,13 +34,15 @@ from pypaint.pygraph import  TGraph
 
 
 class pydset(object):
-    def __init__(self,dbaseName,srcName, srcType=' VIEW '):
+    def __init__(self,dbaseName,srcName, srcType=' VIEW ',conn=None):
         '''
         A pydset instance is initialized over an existing table in SQLITE file.
         '''
         try:
             self.dbaseName = dbaseName;
-            self.pConn = sqlite3.connect(dbaseName)
+            if conn == None:
+                self.pConn = sqlite3.connect(dbaseName)
+            else: self.pConn = conn
             self.srcName = srcName.strip()
             self.srcType = srcType.strip()
             self.colNames = []
@@ -59,7 +61,9 @@ class pydset(object):
                                  +srcName+" in database "+dbaseName)
         except Exception as err:
             print_error(err,'pydset.__init__')
-       
+    def __del__(self):
+        pass
+        self.drop()   
     def drop(self):
         '''
         Drop the underlying table from database.
@@ -71,7 +75,7 @@ class pydset(object):
         except Exception as err:
             print_error(err,'pydset.drop')
                         
-    def union(self, guy, resultTab, resultType=' VIEW ', on=[]):
+    def union(self, guy, resultTab, resultType=' VIEW '):
         '''
         Append two pydset objects. The regular SQL UNION rules apply:
           1. Both objects have same number of columns.
@@ -82,20 +86,11 @@ class pydset(object):
             self.pConn.execute(drop_table_qry(resultTab,resultType))
             self.pConn.commit()
             query = 'CREATE ' + resultType +'  '+resultTab+ ' AS SELECT * FROM  (SELECT * FROM '+self.srcName+" UNION SELECT * FROM "+guy.srcName+" ) "
-            temp= []
-            for var in on:
-                temp.append('T1.'+var+'= T2.'+var)
-            ##print query
+             ##print query
             self.pConn.execute(query)
             self.pConn.commit()
             self.srcName = resultTab
             self.srcType = resultType
-            self.colNames = []
-            d = {}
-            for var in on:
-                self.colNames.append(var)
-                d[var] = self.colTypes[var]
-            self.colTypes = d
         except Exception as err:
             print_error(err, 'pydset.union_to')   
 
@@ -117,8 +112,9 @@ class pydset(object):
         except Exception as err:
             print_error(err, 'pydset.update')
             
-    def apply(self, colName, funcName, func, numparams, conditions=['1=1'],returnQueryOnly=False):
+    def apply(self, colNames, funcName, func, numparams, conditions=['1=1'],returnQueryOnly=False):
         try:
+            colName = ','.join(colNames)
             self.pConn.create_function(funcName,func=func,narg=numparams)
             self.update(colName,newVal=funcName+'('+colName+')',
                                 conditions=conditions,
@@ -133,10 +129,17 @@ class pydset(object):
          Writes a subset of data, as a VIEW or TABLE and returns a pydset object bound to new table.        
         '''
         try:
-            if (len(varNames)==1 and varNames[0]=='*'):
-                varNames = [var for var in self.colNames]
+            myVarNames=[]  ##A temporary surrorgate
+            for var in varNames:
+                myVarNames.append(var.strip())
+            #    if var.strip() == '*':
+            #        for v in self.colNames: myVarNames.append(v)
+            #    else : myVarNames.append(var)
+            varNames = myVarNames    
             ##Drop if there already is a table with name 'resultTab'
+            ##self.pConn.cursor().execute(drop_table_qry(resultTab,'VIEW'))
             self.pConn.cursor().execute(drop_table_qry(resultTab,resultType))
+            
             self.pConn.commit()
             if srcName=='':
                 srcName = self.srcName
@@ -152,16 +155,23 @@ class pydset(object):
             query = '\nCREATE ' + resultType + ' '+resultTab+" AS "+query
             if returnQueryOnly == True:
                 return query 
+            print (query)
+            
             self.pConn.cursor().execute(query)
             self.pConn.commit()
-            pv = pydset(dbaseName=self.dbaseName,srcName=resultTab, srcType
-                                                                   =resultType)
+            #self.pConn.execute('PRAGMA synchronous=NORMAL');
+            if self.dbaseName.strip()==':memory:':
+                conn = self.pConn
+            else: conn = None
+            pv = pydset(dbaseName=self.dbaseName,srcName=resultTab, 
+                               srcType=resultType, conn = conn)
 #            pv = pydset(self.dbaseName,resultTab)
 #           pv.srcName = resultTab
 #             pv.srcType = resultType             
             for varName in pv.colTypes:
                  if varName in self.colTypes:
                      pv.colTypes[varName] = self. colTypes[varName]
+            #print (pv.srcName)
             return pv
         except Exception as err:
             print_error(err,'pydset.get')
@@ -234,6 +244,51 @@ class pydset(object):
             return query
         except Exception as err:
             print_error(err, 'join_qry') 
+
+    def join(self, resultTab,resultType,d2,varNames1,varNames2,on=['1=1'],joinType=' JOIN '):
+            try:
+               varNames11 = ['d1.'+var for var in varNames1]
+               varNames12 = ['d2.'+var for var in varNames2]
+               
+               for j in on:
+                 vs = j.strip().split('=')
+                 v1  = vs[0].strip()
+                 v2  = vs[1].strip()
+                 q1 = 'CREATE INDEX IF NOT EXISTS index_'+v1+' ON '+self.srcName+' ('+v1+')'
+                 q2 = 'CREATE INDEX IF NOT EXISTS index_'+v2+' ON '+d2.srcName+' ('+v2+')'
+                 print q1
+                 print q2
+                 self.pConn.execute(q1)
+                 self.pConn.execute(q2)   
+                 
+               
+               
+               onn = []
+               for condition in on:
+                   if condition.strip()=='1=1': pass
+                   else:
+                       cond = condition.split('=')
+                       if len(cond)!=2: pass
+                       else: onn.append(
+                             '='.join(['d1.'+cond[0].strip(),'d2.'+cond[1].strip()]))
+               varNames = varNames11+varNames12
+               on = onn
+               query = 'SELECT \n'
+               query = query + ',\n'.join(varNames)
+               query = query+'\nFROM \n'
+               query = query+joinType.join((self.srcName+' as d1',d2.srcName+' as d2'))
+               query = query+'\nON\n'
+               query = query+' AND '.join(on)      
+               #print query 
+               
+               return self.subset(resultTab,resultType,varNames=['*'],srcName=query,
+                        conditions = ['1=1'],returnQueryOnly=False)
+            except Exception as err:
+                print_error(err,'pydata.join') 
+    
+    
+
+
                   
     def columns_to_rows(self, resultTab, rsltCol1Name, rsltCol2Name,rsltCol1Type, dynamicCols,fixedCols=[],returnQueryOnly=False):
         '''
@@ -331,7 +386,7 @@ class pydset(object):
             #print myvars
             return self.subset(resultTab=resultTab,
                           resultType=resultType,
-                          varNames=varNames,
+                          varNames=myvars,
                           conditions=conditions,
                           groupBy = groupBy,
                           orderBy = orderBy,
@@ -391,8 +446,8 @@ class pydset(object):
     def __scalar(self,varString,conditions = ['1=1']):
         try:
             query = select_data_qry(varNames=[varString],srcNames=[self.srcName],conditions = conditions)                      
-            result = self.pConn.cursor().execute(query)            
-            return float(result.fetchone()[0])            
+            result = self.pConn.cursor().execute(query)
+            return result.fetchone()[0]            
         except Exception as err:
             print_error(err, 'pydset.scalar')
     
@@ -521,19 +576,19 @@ class pydset(object):
             query = 'SELECT * FROM (SELECT '+allVars+' FROM '+self.srcName+") LIMIT "+str(limit)+" OFFSET "+str(ofset)
            
         try:
-            print query
+            #print query
             results = self.pConn.cursor().execute(query)
-            print cosmetic_line(len(self.colNames), 19)
+            print (cosmetic_line(len(self.colNames), 19))
             print_tuple(tuple(self.colNames))
-            print cosmetic_line(len(self.colNames), 19)
+            print (cosmetic_line(len(self.colNames), 19))
             for row in results:                
                 print_tuple(row)
-            print cosmetic_line(len(self.colNames), 19)
+            print (cosmetic_line(len(self.colNames), 19))
         except Exception as err:
             print_error(err,'pydset.show')      
     
     def head(self,num=-1):
-        print "\nWARNING (pydset.head): Viewing-only tool invoked!"
+        print ("\nWARNING (pydset.head): Viewing-only tool invoked!")
         if num==-1:
             num = self.count()
         fLine = 1
@@ -541,7 +596,7 @@ class pydset(object):
         self.show(fLine,lLine)
     
     def tail(self,num):
-        print "\nWARNING (pydset.tail): Viewing-only tool invoked!"
+        print ("\nWARNING (pydset.tail): Viewing-only tool invoked!")
         count = self.count()        
         fLine = count-num+1
         lLine = count
@@ -558,12 +613,12 @@ class pydset(object):
             if ret_dict[key]=='':
                 ret_dict[key]='NUMBER'
         if printIt == True:
-            print cosmetic_line(2,19)
+            print (cosmetic_line(2,19))
             print_tuple(("Variable","Type"),20)
-            print cosmetic_line(2,19)        
+            print (cosmetic_line(2,19))        
             for key in self.colTypes:
                 print_tuple((key,ret_dict[key]),20)
-            print cosmetic_line(2,19)        
+            print (cosmetic_line(2,19))        
         return ret_dict
         
     def describe(self,varNames=[]):
@@ -586,9 +641,9 @@ class pydset(object):
 
         try:    
             cosmetic = cosmetic_line(7,19)
-            print cosmetic
+            print (cosmetic)
             print_tuple(('Variable','Mean','Min','Max','Median', 'std','count'),20)
-            print cosmetic
+            print (cosmetic)
             if len(varNames)==0 or ('*' in varNames):
                 varNames = []
             for x in self.colNames:
@@ -606,7 +661,7 @@ class pydset(object):
                                str(metrics['median']), 
                                str(metrics['stddev']), 
                                str(metrics['count'])),20)  
-            print cosmetic
+            print (cosmetic)
         except Exception as err:
             print_error(err, 'pydset.desribe')         
             
@@ -659,7 +714,7 @@ class pydset(object):
                 isDate = isDate and (re.match(matcher[dateFormat],val)!=None)
             return isDate        
         except Exception as err:
-            print err
+            print (err)
             print_error(err,'dataset.check_temporicity')  
       
     def analyze_columns(self, dateFormat='yyyy-mm-dd'):        
@@ -793,6 +848,7 @@ class pydset(object):
             for row in results:
                 retAr.append(list(row))
             return np.array(retAr)
+        
         except Exception as err:
             print_error(err,'pydset.to_numpy')
 
@@ -803,7 +859,7 @@ class pydset(object):
         try:
             ofile = open(fileName,'w')  
             query = select_data_qry(varNames,[self.srcName],conditions,groupBy,orderby,limit,offset)
-            print query
+            #print query
             results = self.pConn.cursor().execute(query)
             varNames =  [ i[0] for i in results.description]  
             ofile.write(','.join(varNames)+'\n')
@@ -842,3 +898,13 @@ def Main():
     
     d.head()
     dd.head()
+
+
+    
+    
+    
+    
+    
+    
+    
+    

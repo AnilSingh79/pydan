@@ -91,7 +91,7 @@ def print_tuple(vals,colWid=20):
 def print_error(err,place=''):
     sys.stderr.write(('ERROR ('+place+'):  %s\n') % str(err))
     
-    
+
 def month_enum(token):
     return {
             'January':'1',
