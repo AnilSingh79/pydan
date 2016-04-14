@@ -81,10 +81,23 @@ The pyDAN project is still in infancy. The devel version can be obtained from th
 <code><pre>
 import sys
 sys.path.insert(0,"C:\Users\SingAn22\Desktop\PYDAN\Beta")
-
 from pydan import *
 </pre></code>
 
+#What can I expect in future>
+------------------------------
+We are working on several channels
+<ul>
+ <li> Enhancement possible formats for data input. 
+ <li> Enhancement of analytics library.
+ <li> Enrichment of the SQL engine to automate generation of complex statements.
+ <li> Enrichment of remote data processing abilities.
+</ul>
+
+
+#How can I contribute?
+----------------------
+Well the first obvious step is to request a beta version and start using it. And then we can direct you to one of the several open lines of development at pyDAN.
 
 
 
