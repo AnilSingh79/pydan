@@ -109,7 +109,7 @@ The pyDAN is a private project and yet not released for general consumption. We 
 
 <br><br><br>
 
-#Tutorial 1: Fiancial Data
+#Tutorial 1: Data from Stock Market
 ##Introduction
 We use a file from Bombay Stock Exchange containing 3 years worth of daily data for a particular stock. Using pyDAN we will demonstrate how to build a simple analytic routine.
 
@@ -122,7 +122,6 @@ We use a file from Bombay Stock Exchange containing 3 years worth of daily data 
   ##Load the data into sqlite database, obtain pydset object.
   data = csv.to_database(tabName='pydanTable_prelim',database ='fullPathTo\\dset.db')
 </pre></code>
-</ol>
 
 <li> Change the Date format (String Level Manipulation)
 <code><pre>
@@ -150,7 +149,7 @@ We use a file from Bombay Stock Exchange containing 3 years worth of daily data 
   #transform columns to their proper datatypes.
   dset = data.transform(resultTab='pydanTable',colTypes=colTypes)
 
-
+</ol>
 
 </pre></code>
   
