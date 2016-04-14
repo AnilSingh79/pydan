@@ -84,7 +84,7 @@ sys.path.insert(0,"C:\Users\SingAn22\Desktop\PYDAN\Beta")
 from pydan import *
 </pre></code>
 
-##What can I expect in future>
+##What can I expect in future?
 ------------------------------
 We are working on several channels
 <ul>
