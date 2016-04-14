@@ -111,7 +111,7 @@ The pyDAN is a private project and yet not released for general consumption. We 
 
 #Tutorial 1: Data from Stock Market
 ##Introduction
-We use a file from Bombay Stock Exchange containing 3 years worth of daily data for a particular stock. Using pyDAN we will demonstrate how to build a simple analytic routine. Here are some visualizations from analytics:
+We use a file from Bombay Stock Exchange containing 3 years worth of daily listings for a particular stock. Using pyDAN we will demonstrate how to build a simple analytic routine. Here are some visualizations from analytics:
 <table>
 <tr>
 <td><img align="middle" src="https://github.com/AnilSingh79/pydan/blob/master/figure_2.png"/></td>
