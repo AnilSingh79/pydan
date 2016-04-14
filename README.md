@@ -106,3 +106,54 @@ Well the first obvious step is to request a beta version and start using it. And
 ##Disclaimer
 -----------------
 The pyDAN is a private project and yet not released for general consumption. We can not guarantee support of back-version compatibility at the present moment but we do encourage people to start using the package as it matures into a release version.
+
+<br><br><br>
+
+#Tutorial 1: Fiancial Data
+##Introduction
+We use a file from Bombay Stock Exchange containing 3 years worth of daily data for a particular stock. Using pyDAN we will demonstrate how to build a simple analytic routine.
+
+<ol>
+<li> Load data into SQLITE scratchpad (data ingestion)
+<code><pre>
+  ##Register the source csv
+  csv = pycsv_reader("fullPathTo\\533098.csv")
+  
+  ##Load the data into sqlite database, obtain pydset object.
+  data = csv.to_database(tabName='pydanTable_prelim',database ='fullPathTo\\dset.db')
+</pre></code>
+</ol>
+
+<li> Change the Date format (String Level Manipulation)
+<code><pre>
+  #weave business requirements into a python function
+  def refine_date(element):
+    try:
+      myDate = element.split('-')
+      myMnth = '{:02d}'.format(int(month_enum(myDate[1])))
+      myDay  = '{:02d}'.format(int(myDate[0]))
+      myYear = myDate[2]
+      newDate = '-'.join([myYear,myMnth,myDay])
+      return newDate
+    except Exception as err:
+      print_error(err,'pydan_test1.refine_date')
+
+  #Apply the business requirement to one of the columns 
+  data.apply(colName='Dat', funcName='to_date', func=refine_date, argNames=['Dat'])
+</pre></code>
+
+<li> Analyze data in each column and set types (Automated Data Recognition)
+<code><pre>
+  #Analyze the data in columns for numericity
+  colTypes = data.analyze_columns()
+  
+  #transform columns to their proper datatypes.
+  dset = data.transform(resultTab='pydanTable',colTypes=colTypes)
+
+
+
+</pre></code>
+  
+
+
+
