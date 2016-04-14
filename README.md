@@ -1,6 +1,6 @@
 #pyDAN : TAKING DATA TO ALGORITHMS
 ==================================
-<pre>Corresponding Author: Anil Pratap Singh (singh.ap79@gm*l*.*om)</pre>
+<pre>Author (contact): Anil Pratap Singh (singh.ap79@gm*l*.*om)</pre>
 
 ##What is it?
 ----------------
@@ -148,6 +148,28 @@ We use a file from Bombay Stock Exchange containing 3 years worth of daily data 
   
   #transform columns to their proper datatypes.
   dset = data.transform(resultTab='pydanTable',colTypes=colTypes)
+
+<li> Collapse the daily data to weekly level. 
+<code><pre>
+ #Creat a unique marker for year-week combo
+ def unqWeekMarker(date):
+    year = int(datetime.strptime(str(date),'%Y-%m-%d').date().strftime('%Y'))
+    week =  int(datetime.strptime(str(date),'%Y-%m-%d').date().strftime('%W'))
+    u= 100*int(year)+1*int(week)
+    
+ #Time to add this new column to the dset
+ dset.addColumn("unqWeek","NUMBER","to_unwk",uniqueWeek,argNames=['date'])
+
+ #Now is the time to collapse (weekly averages)
+ dt3 = dset.aggregate(resultTab='WEEKLY',aggOp=' AVG ', 
+        varNames=['NoofShares','ClosePrice','TotalTurnoverRs','LowPrice','HighPrice','SpreadCloseOpen'],
+        groupBy=['unqWeek'],
+        orderBy = ['unqWeek'],
+        conditions = ['1=1']
+      )
+
+</pre></code>
+
 
 </ol>
 
