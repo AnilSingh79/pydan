@@ -77,4 +77,14 @@ pydset.graph1D
 </table>
 #How do I start?
 ------------------
-The pyDAN project is still in infancy. The devel version can be obtained from this repository but there is no guarantee that it will work. A more stable and tested beta version can be <b>obtained on request from the author</b>.
+The pyDAN project is still in infancy. The devel version can be obtained from this repository but there is no guarantee that it will work. A more stable and tested beta version can be <b>obtained on request from the author</b>. The beta version is supplied as a single python source file, and can be made available in your analysis by doing:
+<code><pre>
+import sys
+sys.path.insert(0,"C:\Users\SingAn22\Desktop\PYDAN\Beta")
+
+from pydan import *
+</pre></code>
+
+
+
+
