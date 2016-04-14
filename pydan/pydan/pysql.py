@@ -18,12 +18,14 @@ def create_table_qry(tabName, varDict={}, uniqueIdFlag=False,uIdName='PYDAN_ROW_
         #for var in varNames:
         #    if var not in varTypes: varTypes[var]='VARCHAR'       
 #        if (len(varTypes)==0):
-#            for var in varNames: varTypes[var]='VARCHAR'        
+#            for var in varNames: varTypes[var]='VARCHAR'
+        print (varDict)
         for varname in varDict:
             vartype = varDict[varname]            
             varterms.append('       '.join([varname,vartype]))
         query = query+ ',\n '.join(varterms)
         query = query+'\n )'
+    
         return query
     except Exception as err:
         print_error(err, 'pysql.create_table_qry')        
@@ -70,7 +72,7 @@ def select_data_qry(varNames,srcNames,conditions=['1=1'],groupby=[],orderby=[],l
         if offset > 0:
             query = query + '\nOFFSET '+str(offset)            
         return query
-    except Exception, err:
+    except Exception as err:
         sys.stderr.write('ERROR: %s\n' % str(err))
         return ''    
 
@@ -131,7 +133,7 @@ def get_binning_query(tabName,lowBinDict,hiBinDict,conditions=['1=1'],orderby=[]
     except Exception as err:
         print_error(err,'pysql.get_binning_query')        
 
-def drop_table_qry(tabName, tabType=' VIEW '):
+def drop_table_qry(tabName, tabType=' TABLE '):
     try:
         return 'DROP '+tabType+' IF EXISTS '+tabName
     except Exception as err:
@@ -151,9 +153,6 @@ def get_binning_casequery(tabName,varName,lBinEdges,hBinEdges):
         case_query += 'END '+varName+'\n'       
         return case_query
     except Exception as err:
-        print_error(err, 'pydataview.get_binning_casequery')  
-    
-
-
+        print_error(err, 'pydatatable.get_binning_casequery')
 
 
