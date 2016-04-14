@@ -38,7 +38,7 @@ The SQL standard a high level layer providing uniform (okay nearly uniform) inte
 </table>
 For every action requested on data, pyDAN generate appropriate SQL under the hood and executes it using pysqlite library. Each time a track is kept for the result tables (if any), and they too become available in program for futher manipulation.
 
-##So what do I need to learn ?
+##What do I need to learn ?
 -----------------------------
 If you have beginner's skills at python and SQL, then its all you need to get started. Just know that in heart of pyDAN is the <code>pydset</code> class, which provides a pipe to an underlying tables in scratch sqlite. The <code>pydset</code> allows user to request maniputlations/queries on the data.
 <table>
@@ -75,3 +75,6 @@ pydset.graph1D
 </tr>
 <tr>Table 1: A part of pydset interface.</tr>
 </table>
+#How do I start?
+------------------
+The pyDAN project is still in infancy. The devel version can be obtained from this repository but there is no guarantee that it will work. A more stable and tested beta version can be <b>obtained on request from the author</b>.
