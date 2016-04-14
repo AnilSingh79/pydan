@@ -114,6 +114,16 @@ The pyDAN is a private project and yet not released for general consumption. We 
 We use a file from Bombay Stock Exchange containing 3 years worth of daily data for a particular stock. Using pyDAN we will demonstrate how to build a simple analytic routine.
 
 <ol>
+<li> Libraries
+<code><pre>
+  from pydan.pycsv import pycsv_reader
+  from pydan.pytools import month_enum, print_error,clean_string
+  from pypaint.pygraph import TGraph
+
+  from matplotlib import pyplot as plt
+  from matplotlib import ticker
+  from datetime import datetime
+</pre></code>
 <li> Load data into SQLITE scratchpad (data ingestion)
 <code><pre>
   ##Register the source csv
@@ -171,6 +181,50 @@ We use a file from Bombay Stock Exchange containing 3 years worth of daily data 
 
 </pre></code>
 
+<li> Simple Visualization
+<code><pre>
+  #Graph low price against week-id
+  gr = dt3.graph1D(
+        outfile='o.db',
+        varNameX='unqWeek',
+        varNameY='LowPrice', 
+        plotName='lPrice_Graph',
+        plotTitle='Low Price (Weekly)'
+      )
+      
+  #Graph hi price against week-id
+  gr2 = dt3.graph1D(
+        outfile='o.db',
+        varNameX='unqWeek',
+        varNameY='HighPrice', 
+        plotName='hPrice_Graph',
+        plotTitle='High Price (Weekly)'
+      )
+  
+  #Create the canvas
+  fig = plt.figure(facecolor='white')
+  ax  = fig.add_subplot(1,1,1)
+  gr.draw(ax)
+  gr2.draw(ax)
+  </pre></code>
+  
+  <li> Cosmetic Settings
+  <code><pre>
+  #Logic to turn ugly weekId (201245) into beautiful market 2012-45
+  def make_label(value,pos):
+    return str(int(value/100))+"-"+str(int(value-int(value/100)*100))
+  
+  #Set xaxis labels using this logic
+  ax.xaxis.set_major_formatter(ticker.FuncFormatter(make_label))
+  
+  #Add a grid
+  ax.grid(True)
+  </pre></code>
+
+  <li> Finally
+  <code><pre>
+  plt.show()
+  </pre></code>
 
 </ol>
 
