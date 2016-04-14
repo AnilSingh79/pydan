@@ -1,40 +1,32 @@
 '''
 Created on Oct 7, 2015
 
-
 @author: Anil Singh, for Daddy's Ersa :)
-'''
 
+Major Update : 4/8/2016
+'''
 
 import sqlite3
 import math
 import re
 import numpy as np
 import datetime as dt
+
+from pytools import print_error
+from pytools import clean_text
+from pytools import clean_string
+from pytools import *
+
+from pysql  import *
+from pypaint.pyhist import TH1D
+from pypaint.pygraph import TGraph
 import matplotlib.dates as mdate
 
-##PYDAN IMPORTS
-from pydan.pysql     import  create_table_qry  
-from pydan.pysql     import  drop_table_qry
-from pydan.pysql     import  select_data_qry
-#from pydan.pysql    import  update_column_qry
-#from pydan.pysql    import  get_column_metrics_qry
-from pydan.pysql     import  get_median_qry
-#from pydan.pysql    import  get_column_err2_qry
-from pydan.pysql     import  get_binning_query
-from pydan.pytools   import  clean_text
-from pydan.pytools   import  print_error
-#from pydan.pytools  import  clean_split_string
-from pydan.pytools   import  clean_string
-#from pydan.pytools  import  straight_line
-from pydan.pytools   import  cosmetic_line
-from pydan.pytools   import  print_tuple
-from pypaint.pyhist  import  TH1D
-from pypaint.pygraph import  TGraph
+
 
 
 class pydset(object):
-    def __init__(self,dbaseName,srcName, srcType=' VIEW ',conn=None):
+    def __init__(self,dbaseName,srcName, srcType=' TABLE ',conn=None):
         '''
         A pydset instance is initialized over an existing table in SQLITE file.
         '''
@@ -47,6 +39,7 @@ class pydset(object):
             self.srcType = srcType.strip()
             self.colNames = []
             self.colTypes = {}
+            self.persist = True
             query = 'PRAGMA table_info('+self.srcName+')'
             colDetails = self.pConn.cursor().execute(query)
             numrows = 0
@@ -61,21 +54,32 @@ class pydset(object):
                                  +srcName+" in database "+dbaseName)
         except Exception as err:
             print_error(err,'pydset.__init__')
+    
+    def getColNames(self):
+        return [col for col in self.colNames]
+    
     def __del__(self):
-        pass
-        self.drop()   
+        if self.persist == False:
+            self.drop()
+        ####self.drop()   
+        self.srcName=None
+        self.srcType= None
+        self.colNames = None
+        self.colTypes = None
+
     def drop(self):
         '''
         Drop the underlying table from database.
         '''
         try:
             query = drop_table_qry(tabName=self.srcName,tabType=self.srcType)
-            self.pConn.cursor().execute(query)
+            #print (query)
+            self.pConn.execute(query)
             self.pConn.commit()
         except Exception as err:
             print_error(err,'pydset.drop')
                         
-    def union(self, guy, resultTab, resultType=' VIEW '):
+    def union(self, guy, resultTab, resultType=' TABLE '):
         '''
         Append two pydset objects. The regular SQL UNION rules apply:
           1. Both objects have same number of columns.
@@ -85,14 +89,24 @@ class pydset(object):
         try:
             self.pConn.execute(drop_table_qry(resultTab,resultType))
             self.pConn.commit()
-            query = 'CREATE ' + resultType +'  '+resultTab+ ' AS SELECT * FROM  (SELECT * FROM '+self.srcName+" UNION SELECT * FROM "+guy.srcName+" ) "
-             ##print query
+            allVars1 = [var for var in self.colNames]
+            
+            query = 'CREATE ' + resultType +'  '+resultTab+ ' AS SELECT * FROM  (SELECT '+','.join(allVars1)+' FROM '+self.srcName+" UNION SELECT "+','.join(allVars1)+" FROM "+guy.srcName+" ) "
+            #print query
             self.pConn.execute(query)
             self.pConn.commit()
+            self.drop()
             self.srcName = resultTab
             self.srcType = resultType
         except Exception as err:
-            print_error(err, 'pydset.union_to')   
+            print_error(err, 'pydset.union')   
+            print (query)
+            print (self.colNames)
+            print (guy.colNames)
+            print self.head(1)
+            print guy.head(2)
+            exit(0)
+
 
 
     def update(self, colName, newVal, conditions=['1=1'],returnQueryOnly=False):
@@ -104,7 +118,8 @@ class pydset(object):
             if 'TABLE' not in self.srcType.upper():
                 raise ValueError('pydset.update_column: operation permitted for tables only!')
             else:
-                query =  'UPDATE '+self.srcName+' SET '+colName+' = '+newVal+' WHERE '+' AND '.join(conditions)
+                query =  'UPDATE '+self.srcName+' SET '+colName+' = '+str(newVal)+' WHERE '+' AND '.join(conditions)
+                #print (query)
                 if (returnQueryOnly == True):
                     return query
                 self.pConn.cursor().execute(query)
@@ -112,21 +127,39 @@ class pydset(object):
         except Exception as err:
             print_error(err, 'pydset.update')
             
-    def apply(self, colNames, funcName, func, numparams, conditions=['1=1'],returnQueryOnly=False):
+    def apply(self, colName, funcName, func, argNames, conditions=['1=1'],
+              returnQueryOnly=False):
         try:
-            colName = ','.join(colNames)
+            argName = ','.join(argNames)
+            numparams = len(argNames)
             self.pConn.create_function(funcName,func=func,narg=numparams)
-            self.update(colName,newVal=funcName+'('+colName+')',
+            self.update(colName,newVal=funcName+'('+argName+')',
                                 conditions=conditions,
                                           returnQueryOnly=returnQueryOnly)
         except Exception as err:
             print_error(err,'pydset.apply')
+            
+            
+            
+    def addColumn(self, newColumn, newColType, funcName, func, argNames, conditions=["1=1"]):
+        try:
+            query = "ALTER TABLE "+self.srcName+" ADD COLUMN ?newColumn? ?newColumnType?"
+            query = query.replace("?newColumn?",newColumn)
+            query = query.replace("?newColumnType?",newColType)
+            self.colNames.append(newColumn)
+            self.colTypes[newColumn]=newColType
+            self.pConn.cursor().execute(query)
+            self.apply(newColumn,funcName,func,argNames,conditions)
+        except Exception as err:
+            print_error(err, "pydset.addColumn")
     
-    def subset(self,resultTab,resultType=' VIEW ',varNames=['*'],srcName='',
+    
+    
+    def subset(self,resultTab,resultType=' TABLE ',varNames=['*'],srcName='',
                     conditions = ['1=1'],groupBy = [],orderBy = [],limit=-1, 
                     offset=-1,returnQueryOnly=False):
         '''
-         Writes a subset of data, as a VIEW or TABLE and returns a pydset object bound to new table.        
+         Writes a subset of data, as a TABLE or TABLE and returns a pydset object bound to new table.        
         '''
         try:
             myVarNames=[]  ##A temporary surrorgate
@@ -137,7 +170,8 @@ class pydset(object):
             #    else : myVarNames.append(var)
             varNames = myVarNames    
             ##Drop if there already is a table with name 'resultTab'
-            ##self.pConn.cursor().execute(drop_table_qry(resultTab,'VIEW'))
+            ##self.pConn.cursor().execute(drop_table_qry(resultTab,'TABLE'))
+            print drop_table_qry(resultTab,resultType)
             self.pConn.cursor().execute(drop_table_qry(resultTab,resultType))
             
             self.pConn.commit()
@@ -155,7 +189,7 @@ class pydset(object):
             query = '\nCREATE ' + resultType + ' '+resultTab+" AS "+query
             if returnQueryOnly == True:
                 return query 
-            print (query)
+            ##print (query)
             
             self.pConn.cursor().execute(query)
             self.pConn.commit()
@@ -174,9 +208,9 @@ class pydset(object):
             #print (pv.srcName)
             return pv
         except Exception as err:
-            print_error(err,'pydset.get')
+            print_error(err,'pydset.subset')
 
-    def transform(self,resultTab, resultType, colTypes,conditions=['1=1'],
+    def transform(self,resultTab,colTypes, resultType = " TABLE ",conditions=['1=1'],
                                              returnQueryOnly=False):
         '''
          colTypes={varName:varType}
@@ -200,7 +234,7 @@ class pydset(object):
         except Exception as err:
             print_error(err, 'pydset.transform')
             
-    def get_chunk(self,resultTab, resultType=' VIEW ',fLine=1, lLine=2, 
+    def get_chunk(self,resultTab, resultType=' TABLE ',fLine=1, lLine=2, 
                        varNames=[], conditions = ['1=1'],orderBy=[],
                                     returnQueryOnly=False):
         '''
@@ -245,7 +279,7 @@ class pydset(object):
         except Exception as err:
             print_error(err, 'join_qry') 
 
-    def join(self, resultTab,resultType,d2,varNames1,varNames2,on=['1=1'],joinType=' JOIN '):
+    def join(self, resultTab,d2,varNames1,varNames2,on=['1=1'],joinType=' JOIN ',resultType=" TABLE ",returnQueryOnly=False):
             try:
                varNames11 = ['d1.'+var for var in varNames1]
                varNames12 = ['d2.'+var for var in varNames2]
@@ -256,11 +290,11 @@ class pydset(object):
                  v2  = vs[1].strip()
                  q1 = 'CREATE INDEX IF NOT EXISTS index_'+v1+' ON '+self.srcName+' ('+v1+')'
                  q2 = 'CREATE INDEX IF NOT EXISTS index_'+v2+' ON '+d2.srcName+' ('+v2+')'
-                 print q1
-                 print q2
+                 #print q1
+                 #print q2
                  self.pConn.execute(q1)
                  self.pConn.execute(q2)   
-                 
+                
                
                
                onn = []
@@ -280,8 +314,10 @@ class pydset(object):
                query = query+'\nON\n'
                query = query+' AND '.join(on)      
                #print query 
-               
-               return self.subset(resultTab,resultType,varNames=['*'],srcName=query,
+               if returnQueryOnly==True:
+                   return query
+               else:
+                   return self.subset(resultTab,resultType,varNames=['*'],srcName=query,
                         conditions = ['1=1'],returnQueryOnly=False)
             except Exception as err:
                 print_error(err,'pydata.join') 
@@ -290,12 +326,11 @@ class pydset(object):
 
 
                   
-    def columns_to_rows(self, resultTab, rsltCol1Name, rsltCol2Name,rsltCol1Type, dynamicCols,fixedCols=[],returnQueryOnly=False):
+    def unpivot(self, resultTab, rsltCol1Name, rsltCol2Name,rsltCol1Type, dynamicCols,fixedCols=[],returnQueryOnly=False):
         '''
          Increase number of rows by converting multiple columns of related data into row form.
         '''
         try:
-            ##Raise value error if dynamicCols is empty
             if (len(dynamicCols)==0):
                 raise ValueError('pydset.column_to_rows: dynamicCols can not be empty')
             ##Check if all the columns under union have same type.
@@ -315,15 +350,20 @@ class pydset(object):
                         fixedCols.append(col)
                         fixedColTypes.append(self.colTypes[col])
             else:
-                fixedColTypes = [self.colType[col] for col in fixedCols]
+                fixedColTypes = [self.colTypes[col] for col in fixedCols]
             ##Check of the fixed columns lead to unique tuples.
+            #print self.srcName
             uniqueCount = self.pConn.execute(
                     'SELECT COUNT(*) FROM (SELECT DISTINCT '
                   +','.join(fixedCols)+' FROM '+self.srcName+')').fetchone()[0]
+            #print 'KI'
+
+            #print 'SELECT COUNT(*) FROM (SELECT'+','.join(fixedCols)+' FROM '+self.srcName+')'
+            
             totalCount  = self.pConn.execute(
-                            'SELECT COUNT(*) FROM (SELECT'+','.join(fixedCols)
+                            'SELECT COUNT(*) FROM (SELECT '+','.join(fixedCols)
                             +' FROM '+self.srcName+')').fetchone()[0]
-                            
+            #print 'HERE'               
             if uniqueCount != totalCount:
                 raise ValueError('pydset.column_to_rows: fixedCols must yield a stable set of rows')       
             ##Get on with the actual transposing.
@@ -339,7 +379,7 @@ class pydset(object):
             query = 'CREATE TABLE '+resultTab+' AS \n'+query
             if returnQueryOnly == True:
                 return query
-            ##print query
+            #print query
             self.pConn.execute('DROP TABLE IF EXISTS '+resultTab)
             self.pConn.execute(query)   
             pv = pydset(self.dbaseName,resultTab,' TABLE ')
@@ -349,8 +389,7 @@ class pydset(object):
             print_error(err, 'pydset.columns_to_rows')
     
             
-    def aggregate(self,resultTab,resultType=' VIEW ',aggOp=' SUM ', varNames=['*'],conditions = ['1=1'],
-                                 groupBy=[],orderBy = [],returnQueryOnly=False):
+    def aggregate(self,resultTab,resultType=' TABLE ',aggOp=' SUM ', varNames=['*'],conditions = ['1=1'],groupBy=[],orderBy = [],returnQueryOnly=False):
         '''
          Collapse multiple rows using aggOp operation, write to sqlite and return pydset object.
          Demonstration: 
@@ -395,7 +434,7 @@ class pydset(object):
         except Exception as err:
             print_error(err,'pydset.aggregate')
             
-    def get_sum(self,resultTab,resultType=' VIEW ', varNames=['*'],conditions = ['1=1'],
+    def get_sum(self,resultTab,resultType=' TABLE ', varNames=['*'],conditions = ['1=1'],
                                groupBy=[],orderBy = [],limit=-1, offset=-1,returnQueryOnly=False):
         '''
          Calculate SUM of each variable in varNames, as a function of variables in groupBy. 
@@ -418,7 +457,7 @@ class pydset(object):
         except Exception as err:
             print_error(err, 'pydset.sum')
                            
-    def get_count(self,resultTab,resultType= ' VIEW ',groupBy=[],orderBy = []):
+    def get_count(self,resultTab,resultType= ' TABLE ',groupBy=[],orderBy = []):
         '''
         Writes frequencies correspoding to each unique combination of variables in 'groupBy' to sqlite and return pydset object. 
         '''  
@@ -428,7 +467,7 @@ class pydset(object):
             vw = self.subset(
                           resultTab = resultTab,
                           resultType = resultType,
-                          varNames=cVars,groupby=groupBy
+                          varNames=cVars,groupBy=groupBy
                           )
             
             vw.colTypes['freq']='NUMBER'
@@ -574,21 +613,23 @@ class pydset(object):
             ofset = firstLine-1
             limit = numLines           
             query = 'SELECT * FROM (SELECT '+allVars+' FROM '+self.srcName+") LIMIT "+str(limit)+" OFFSET "+str(ofset)
-           
+            
         try:
             #print query
             results = self.pConn.cursor().execute(query)
             print (cosmetic_line(len(self.colNames), 19))
-            print_tuple(tuple(self.colNames))
+            
+            print_tuple(tuple(allVars.split(',')))
             print (cosmetic_line(len(self.colNames), 19))
-            for row in results:                
+            for row in results:
+               
                 print_tuple(row)
             print (cosmetic_line(len(self.colNames), 19))
         except Exception as err:
             print_error(err,'pydset.show')      
     
     def head(self,num=-1):
-        print ("\nWARNING (pydset.head): Viewing-only tool invoked!")
+        print ("\nWARNING (pydset.head): Tableing-only tool invoked!")
         if num==-1:
             num = self.count()
         fLine = 1
@@ -667,20 +708,37 @@ class pydset(object):
             
             
             
-    def get(self,colName):
-            query = 'SELECT '+colName+' FROM '+self.srcName+' WHERE '+colName+" != ''"
-            ####print query
-            results = self.pConn.cursor().execute(query)
-            colVals = []
-            for value in results:
-                ##Either is a integer type expression or a float type expression
-                ##val = clean_string(value[0],replaceHyphen= False)
-                ##Why were you changing the values in above line... before returning?
-                val = value[0]
-                colVals.append(val)
+    def get(self,colName, distinct=False):   
+        unique = ''
+        if distinct==True: unique = ' DISTINCT '
+        query = 'SELECT '+' '+colName+' FROM '+self.srcName+' WHERE '+colName+" != ''"
+        ####print query
+        results = self.pConn.cursor().execute(query)
+        colVals = []
+        for value in results:
+            ##Either is a integer type expression or a float type expression
+            ##val = clean_string(value[0],replaceHyphen= False)
+            ##Why were you changing the values in above line... before returning?
+            val = value[0]
+            colVals.append(val)
             
-            return colVals 
-        
+        return colVals 
+
+    def get2(self,colName1,colName2,distinct = False):
+        unique = ''
+        if distinct == True: unique = ' DISTINCT '
+        query = 'SELECT '+' '+colName1+', '+colName2+' FROM '+self.srcName+' WHERE '+colName1+" != ''"
+        results = self.pConn.cursor().execute(query)
+        colVals1 = []
+        colVals2 = []
+        for row in results:
+            v1 = row[0];
+            v2 = row[1];
+            colVals1.append(v1)
+            colVals2.append(v2)
+        return colVals1,colVals2
+
+    
     def check_numericity(self, colName):
         def make_unicode(input):
             if type(input) != unicode:
@@ -735,7 +793,7 @@ class pydset(object):
             print_error(err, 'pydset.analyze_col_types')
 
             
-    def __discrete_count(self, resultTab,resultType = ' VIEW ',lowBinDict={}, 
+    def __discrete_count(self, resultTab,resultType = ' TABLE ',lowBinDict={}, 
                                   highBinDict={},conditions=['1=1'], 
                                                returnQueryOnly=False):
         '''
@@ -790,6 +848,64 @@ class pydset(object):
             except Exception as err:
                 print_error(err, 'pydset.skeleton')
 
+
+    def to_numpy(self,varNames, conditions=['1=1'],groupBy=[],orderBy=[],limit=-1,offset=-1):
+        '''
+          Returns a subset of data, as a numpy table
+        '''
+        try:
+            query = select_data_qry(varNames,[self.srcName],conditions,groupBy,orderBy,limit,offset)
+            retAr = []
+            results = self.pConn.cursor().execute(query)
+            for row in results:
+                retAr.append(list(row))
+            return np.array(retAr)
+        
+        except Exception as err:
+            print_error(err,'pydset.to_numpy')
+
+                
+    def to_csv(self,fileName, varNames=['*'], conditions=['1=1'],groupBy=[],orderby=[],limit=-1,offset=-1):
+        '''
+         Writes a subset of data, as a csv file on disk.
+        '''
+        try:
+            ofile = open(fileName,'w')  
+            query = select_data_qry(varNames,[self.srcName],conditions,groupBy,orderby,limit,offset)
+            #print query
+            results = self.pConn.cursor().execute(query)
+            varNames =  [ i[0] for i in results.description]  
+            ofile.write(','.join(varNames)+'\n')
+            for record in results:
+                ofile.write(','.join(map(str,record))+'\n')
+            ofile.close()
+        except Exception as err:
+            print_error(err,'pydset.to_csv')
+
+    def to_database(self,tabName,varNames=['*'], conditions=['1=1'],groupBy=[],orderBy=[],limit=-1,offset=-1):
+        '''
+         Writes a subset of data, as a table in SQLITE file.
+         No pydset object is returned.
+         
+         Note: Why do we even need this when we have self.subset? 
+          consider deprecating.
+        '''
+        try:
+            #print ("Going to create: "+tabName)
+            query = ' CREATE TABLE '+tabName+' AS SELECT * FROM '+self.srcName
+            self.pConn.execute('DROP TABLE IF EXISTS '+tabName)
+            self.pConn.execute(query)
+            self.pConn.commit()
+            ##pd = pydset(self.dbaseName, tabName)
+            ##pd.force_col_types(self.colTypes)
+            ##return pd
+        except Exception as err:
+            print_error(err,'pydset.to_database')
+
+    
+
+
+
     def hist1D(self,outfile,varName,histName,title, nBins=None,minRange=None,maxRange =None,lBinEdges=[],hBinEdges=[]):
         try:
             if (nBins != None and minRange != None and maxRange != None):
@@ -800,8 +916,9 @@ class pydset(object):
                     lBinEdges.append(n*binWidth+minRange)
                     hBinEdges.append(minRange+(n+1)*binWidth)
                 #print lBinEdges
-                #print hBinEdges
-                hDisc = self.__discrete_count(srcName='hist'+varName, lowBinDict={varName:lBinEdges},highBinDict={varName:hBinEdges})
+                ##lBinDict: {var1:[1,2,3,4], var2:[1,2,3,4,5]... so on}
+   
+                hDisc = self.__discrete_count(resultTab='hist'+varName, lowBinDict={varName:lBinEdges},highBinDict={varName:hBinEdges})
                 rHist = TH1D(outfile,name=histName,title=title,lbins = lBinEdges, hbins=hBinEdges)
                 query = 'select '+varName+', FREQ FROM '+ hDisc.srcName
                 results = self.pConn.cursor().execute(query)
@@ -812,6 +929,9 @@ class pydset(object):
                 return rHist
         except Exception as err:
             print_error(err, 'pydset.hist1D')
+
+
+
 
     def graph1D(self,outfile,varNameX,varNameY, formatX='',formatY='',plotName='test',plotTitle='test',xType='NUMBER',yType='NUMBER'):
         try:
@@ -837,54 +957,6 @@ class pydset(object):
         except Exception as err:
             print_error(err, 'pydset.graph1D')
 
-    def to_numpy(self,varNames=['*'], conditions=['1=1'],groupBy=[],orderBy=[],limit=-1,offset=-1):
-        '''
-          Returns a subset of data, as a numpy table
-        '''
-        try:
-            query = select_data_qry(varNames,[self.srcName],conditions,groupBy,orderBy,limit,offset)
-            retAr = []
-            results = self.pConn.cursor().execute(query)
-            for row in results:
-                retAr.append(list(row))
-            return np.array(retAr)
-        
-        except Exception as err:
-            print_error(err,'pydset.to_numpy')
-
-    def to_csv(self,fileName, varNames=['*'], conditions=['1=1'],groupBy=[],orderby=[],limit=-1,offset=-1):
-        '''
-         Writes a subset of data, as a csv file on disk.
-        '''
-        try:
-            ofile = open(fileName,'w')  
-            query = select_data_qry(varNames,[self.srcName],conditions,groupBy,orderby,limit,offset)
-            #print query
-            results = self.pConn.cursor().execute(query)
-            varNames =  [ i[0] for i in results.description]  
-            ofile.write(','.join(varNames)+'\n')
-            for record in results:
-                ofile.write(','.join(map(str,record))+'\n')
-            ofile.close()
-        except Exception as err:
-            print_error(err,'pydset.to_csv')
-
-    def to_database(self,tabName,varNames=['*'], conditions=['1=1'],groupBy=[],orderBy=[],limit=-1,offset=-1):
-        '''
-         Writes a subset of data, as a table in SQLITE file.
-         No pydset object is returned.
-         
-         Note: Why do we even need this when we have self.subset? consider deprecating.
-        '''
-        try:
-            query = ' CREATE TABLE '+tabName+' AS SELECT * FROM '+self.srcName
-            self.pConn.cursor().execute(query)
-            self.pConn.commit()
-            pd = pydset(self.dbaseName, tabName)
-            pd.force_col_types(self.colTypes)
-            return pd
-        except Exception as err:
-            print_error(err,'pydset.to_database')
 
 def Main():
     
@@ -900,7 +972,6 @@ def Main():
     dd.head()
 
 
-    
     
     
     
