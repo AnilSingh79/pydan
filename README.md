@@ -1,6 +1,6 @@
 #pyDAN : TAKING DATA TO ALGORITHMS
 ==================================
-<pre>Anil Pratap Singh (singh.ap79@gm*l*.*om)</pre>
+<pre>Corresponding Author: Anil Pratap Singh (singh.ap79@gm*l*.*om)</pre>
 
 ##What is it?
 ----------------
