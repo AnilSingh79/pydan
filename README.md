@@ -1,5 +1,7 @@
 #pyDAN : TAKING DATA TO ALGORITHMS
 ==================================
+####Author: Anil Pratap Singh (singh.ap79@gm*l*.*om)
+
 ##What is it?
 ----------------
 The pyDAN is an ongoing to attempt to make the power of SQL analytics available to data scientists and statisticians and minimize dependence over database engineer. The idea is to use all the tools at disposal namely SQL, Python, Java and Cython in one single framework and provide user with an unprecendented ability to pull, clean merge, munge and preanalyze data from multiple sources and stored across several platforms.
