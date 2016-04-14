@@ -152,7 +152,7 @@ We use a file from Bombay Stock Exchange containing 3 years worth of daily data 
 
 <li> Collapse the daily data to weekly level. 
 <code><pre>
- #Creat a unique marker for year-week combo
+ #Creat logic for a unique marker for year-week combo
  def unqWeekMarker(date):
     year = int(datetime.strptime(str(date),'%Y-%m-%d').date().strftime('%Y'))
     week =  int(datetime.strptime(str(date),'%Y-%m-%d').date().strftime('%W'))
