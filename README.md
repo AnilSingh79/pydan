@@ -148,6 +148,7 @@ We use a file from Bombay Stock Exchange containing 3 years worth of daily data 
   
   #transform columns to their proper datatypes.
   dset = data.transform(resultTab='pydanTable',colTypes=colTypes)
+</pre></code>
 
 <li> Collapse the daily data to weekly level. 
 <code><pre>
