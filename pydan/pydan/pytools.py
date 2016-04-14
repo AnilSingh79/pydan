@@ -1,11 +1,20 @@
 '''
 Created on Oct 6, 2015
 
+
+
 @author: Anil Singh
 
+Update: 4/8/2015 : Anil Singh
+Idea : Comeup with a class so that user
+  may define his own cleaning criteria. 
+  For example: may be he wants to replace
+   all '(' by '?'...  and stuff like that.
 '''
 
 import sys
+import traceback
+
 
 def new_list(L):
     return [a for a in L]
@@ -40,6 +49,7 @@ def clean_text(text, splitChar=','):
     ##print "clean_text",text
     return text, text.split(splitChar)
 
+
 def clean_string(text,replaceHyphen=True):
     try:
         text = text.strip()
@@ -59,7 +69,7 @@ def clean_string(text,replaceHyphen=True):
         ##Removing all non-ascii characters.
         text = ''.join([i for i in text if ord(i)<128])
         return text
-    except Exception, err:
+    except Exception as err:
         print_error(err, 'pytools.clean_string')
 
 def clean_split_string(text,splitChar=','):
@@ -89,6 +99,10 @@ def print_tuple(vals,colWid=20):
    
 
 def print_error(err,place=''):
+    exc_type, exc_value, exc_traceback = sys.exc_info()
+    traceback.print_tb(exc_traceback, limit=5, file=sys.stdout)
+    p = sys._getframe(1).f_code.co_name
+    if place == '' : place = p
     sys.stderr.write(('ERROR ('+place+'):  %s\n') % str(err))
     
 
