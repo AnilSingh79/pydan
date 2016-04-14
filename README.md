@@ -75,7 +75,7 @@ pydset.graph1D
 </tr>
 <tr>Table 1: A part of pydset interface.</tr>
 </table>
-#How do I start?
+##How do I start?
 ------------------
 The pyDAN project is still in infancy. The devel version can be obtained from this repository but there is no guarantee that it will work. A more stable and tested beta version can be <b>obtained on request from the author</b>. The beta version is supplied as a single python source file, and can be made available in your analysis by doing:
 <code><pre>
@@ -84,7 +84,7 @@ sys.path.insert(0,"C:\Users\SingAn22\Desktop\PYDAN\Beta")
 from pydan import *
 </pre></code>
 
-#What can I expect in future>
+##What can I expect in future>
 ------------------------------
 We are working on several channels
 <ul>
@@ -92,12 +92,15 @@ We are working on several channels
  <li> Enhancement of analytics library.
  <li> Enrichment of the SQL engine to automate generation of complex statements.
  <li> Enrichment of remote data processing abilities.
+ <li> Enrichment of matplotlib interface for visualization.
 </ul>
 
 
-#How can I contribute?
+##How can I contribute?
 ----------------------
 Well the first obvious step is to request a beta version and start using it. And then we can direct you to one of the several open lines of development at pyDAN.
 
 
-
+##Disclaimer
+-----------------
+The pyDAN is a private project and yet not released for general consumption. We can not guarantee support of back-version compatibility at the present moment but we do encourage people to start using the package as it matures into a release version.
