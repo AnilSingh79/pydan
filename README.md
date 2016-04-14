@@ -117,6 +117,7 @@ We use a file from Bombay Stock Exchange containing 3 years worth of daily data 
 <td><img align="middle" src="https://github.com/AnilSingh79/pydan/blob/master/figure_2.png"/></td>
 <td><img align="middle" src="https://github.com/AnilSingh79/pydan/blob/master/figure_1.PNG"/></td>
 <td>
+</table>
 <ol>
 ## A Walkthrough
 
