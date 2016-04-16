@@ -2,7 +2,8 @@
 <td><img align="middle" src=https://github.com/AnilSingh79/pydan/blob/master/pydan_header.PNG/></td>
 <td><img align="middle" src=https://github.com/AnilSingh79/pydan/blob/master/pyDan.png/></td>
 </tr></table>
-#pyDAN : TAKING DATA TO ALGORITHMS 
+
+##pyDAN : TAKING DATA TO ALGORITHMS 
 <pre>Author (contact): Anil Pratap Singh (singh.ap79@gm*l*.*om)</pre>
 ==================================
 
