@@ -1,10 +1,10 @@
 <h1><color='blue'><b><i>pyDAN</i> : TAKING DATA TO ALGORITHMS</b></color></h1> 
-<pre>Author (contact): Anil Pratap Singh (singh.ap79@gm*l*.*om)</pre>
 -----------------------------------------------
 <table><tr>
-<td><img align="middle" src=https://github.com/AnilSingh79/pydan/blob/master/pydan_header.PNG/></td>
-<td><img align="middle" src=https://github.com/AnilSingh79/pydan/blob/master/pyDan.png/></td>
+<td><img align="middle" src="https://github.com/AnilSingh79/pydan/blob/master/pydan_header.PNG"/></td>
+<td><img align="middle" src="https://github.com/AnilSingh79/pydan/blob/master/pyDan.png"/></td>
 </tr></table>
+<pre>Author (contact): Anil Pratap Singh (singh.ap79@gm*l.*o*)</pre>
 ===========================================================================
 
 ##What is it?
