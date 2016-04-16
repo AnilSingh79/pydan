@@ -1,11 +1,10 @@
 #pyDAN : TAKING DATA TO ALGORITHMS 
-==================================
-
 <table><tr>
 <td><img align="middle" src=https://github.com/AnilSingh79/pydan/blob/master/pydan_header.PNG/></td>
 <td><img align="middle" src=https://github.com/AnilSingh79/pydan/blob/master/pyDan.png/></td>
 </tr></table>
 <pre>Author (contact): Anil Pratap Singh (singh.ap79@gm*l*.*om)</pre>
+==================================
 
 ##What is it?
 ----------------
